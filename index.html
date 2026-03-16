@@ -752,7 +752,7 @@ tr.acc-subtotal td {
       <div class="metrics" id="met-inicio"></div>
 
       <div class="section">
-        <div class="section-head">◈ Activo Corriente ${respBadge('resp-activo')}</div>
+        <div class="section-head">◈ Activo Corriente <span id="resp-activo-wrap"></span></div>
         <div class="section-body">
           <div class="form-grid" id="ac-grid"></div>
         </div>
@@ -760,7 +760,7 @@ tr.acc-subtotal td {
       </div>
 
       <div class="section">
-        <div class="section-head">◈ Pasivo Corriente ${respBadge('resp-pasivo')}</div>
+        <div class="section-head">◈ Pasivo Corriente <span id="resp-pasivo-wrap"></span></div>
         <div class="section-body">
           <div class="form-grid" id="pc-grid"></div>
         </div>
@@ -774,7 +774,7 @@ tr.acc-subtotal td {
       <p class="page-sub">Definí los niveles, alumnos, cuota base y los porcentajes de actualización por mes. La matrícula se calcula automáticamente como 2× la cuota de diciembre. Los totales fluyen a Recursos.</p>
 
       <div class="section">
-        <div class="section-head">◈ Tabla de Cuotas por Nivel — con actualización mensual inline ${respBadge('resp-cuotas')}</div>
+        <div class="section-head">◈ Tabla de Cuotas por Nivel — con actualización mensual inline <span id="resp-cuotas-wrap"></span></div>
         <div style="padding:10px 12px;border-bottom:1px solid var(--border);background:var(--warn-lt);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span style="font-size:11px;color:var(--warn);font-weight:500">% Actualización por mes →</span>
           <span style="font-size:11px;color:var(--text3)">Mar</span>
@@ -911,7 +911,7 @@ tr.acc-subtotal td {
       <p class="page-sub">Compras de activos fijos, obras y mejoras edilicias del período 2026.</p>
 
       <div class="section">
-        <div class="section-head">◈ Detalle de Inversiones ${respBadge('resp-inversiones')}</div>
+        <div class="section-head">◈ Detalle de Inversiones <span id="resp-inversiones-wrap"></span></div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -1055,11 +1055,11 @@ function cerrarResp(id) {
 }
 
 function initResponsables() {
-  // Inyectar badges en los wrappers dinámicos (recursos y egresos están en divs, no en section-head)
-  const rr = $('resp-recursos-wrap');
-  if (rr) rr.innerHTML = respBadge('resp-recursos');
-  const re = $('resp-egresos-wrap');
-  if (re) re.innerHTML = respBadge('resp-egresos');
+  // Inyectar badges en todos los wrappers
+  ['activo','pasivo','cuotas','recursos','egresos','inversiones'].forEach(key => {
+    const wrap = $(`resp-${key}-wrap`);
+    if (wrap) wrap.innerHTML = respBadge(`resp-${key}`);
+  });
 }
 
 function editNombre() {
