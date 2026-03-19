@@ -2621,10 +2621,17 @@ function aplicarCambiosRemotos() {
   if (!window._pendingRemoteState) return;
   const estado = window._pendingRemoteState;
   window._pendingRemoteState = null;
+  // Bloquear fbAutoSave durante toda la restauración
   _restoringFromRemote = true;
-  aplicarEstado(estado);
-  _restoringFromRemote = false;
-  setSyncStatus('ok');
+  try {
+    aplicarEstado(estado);
+  } finally {
+    // Limpiar el flag después de que todos los eventos del DOM se procesen
+    setTimeout(() => {
+      _restoringFromRemote = false;
+      setSyncStatus('ok');
+    }, 500);
+  }
 }
 
 // Exponer restaurador para Firebase listener — NO dispara fbAutoSave
@@ -2701,19 +2708,26 @@ function capturarEstado() {
 
 
 function aplicarEstado(estado) {
+  if (!estado || !estado.v) return;
+
+  // 1. Nombre del colegio
   if (estado.nombreColegio) {
     const disp = document.getElementById('nombre-colegio-disp');
     const inp  = document.getElementById('nombre-colegio-inp');
     if (disp) disp.textContent = estado.nombreColegio;
     if (inp)  inp.value = estado.nombreColegio;
   }
+
+  // 2. Notas
   if (estado.notas !== undefined) {
     const n = document.getElementById('notas');
     if (n) n.innerText = estado.notas;
   }
+
+  // 3. Niveles de cuota
   if (estado.niveles) {
     niveles.length = 0;
-    estado.niveles.forEach(nv => niveles.push(nv));
+    estado.niveles.forEach(nv => niveles.push({...nv}));
     renderCuotaBody();
     niveles.forEach((nv,i) => {
       const al=$('nv-al-'+i), cu=$('nv-cu-'+i), cc=$('nv-cc-'+i);
@@ -2722,11 +2736,30 @@ function aplicarEstado(estado) {
       if(dcu) dcu.textContent=fmt(nv.cu); if(dcc) dcc.textContent=fmt(nv.cc||0);
     });
   }
+
+  // 4. Inversiones
   if (estado.invItems) {
     invItems.length = 0;
     estado.invItems.forEach(it => invItems.push({...it}));
     renderInv();
   }
+
+  // 5. Extras de recursos y egresos — ANTES de initRecursos/initEgresos
+  if (estado.recExtras) {
+    Object.keys(recExtras).forEach(k => delete recExtras[k]);
+    Object.keys(estado.recExtras).forEach(gi => { recExtras[gi] = estado.recExtras[gi].map(r=>({...r})); });
+  }
+  if (estado.egrExtras) {
+    Object.keys(egrExtras).forEach(k => delete egrExtras[k]);
+    Object.keys(estado.egrExtras).forEach(gi => { egrExtras[gi] = estado.egrExtras[gi].map(e=>({...e})); });
+  }
+  if (estado._customSeq) _customSeq = estado._customSeq;
+
+  // 6. Re-renderizar tablas con extras ya cargados
+  initRecursos();
+  initEgresos();
+
+  // 7. Cargar todos los inputs (DESPUÉS del render, para que los elementos existan en el DOM)
   if (estado.inputs) {
     Object.entries(estado.inputs).forEach(([id, val]) => {
       const el = document.getElementById(id);
@@ -2734,36 +2767,45 @@ function aplicarEstado(estado) {
       if (el.tagName === 'INPUT') el.value = val;
     });
   }
+
+  // 8. Actualizar displays de campos formateados de inicio
   [...acFields, ...pcFields].forEach(f => {
     const inp=$(f.id), disp=$(f.id+'-disp');
     if(inp&&disp) disp.textContent = fmt(parseFloat(inp.value)||0);
   });
+
+  // 9. Sub-cuentas 511
   if (estado.subs511) {
     Object.entries(estado.subs511).forEach(([key, val]) => {
       const inp=$(key), disp=$(key+'-disp');
       if(inp) inp.value=val; if(disp) disp.textContent=fmt(val);
     });
   }
+
+  // 10. uerVals
   if (estado.uerVals) Object.assign(uerVals, estado.uerVals);
-  // Restaurar cuentas extras personalizadas
-  if (estado.recExtras) {
-    Object.keys(estado.recExtras).forEach(gi => { recExtras[gi] = estado.recExtras[gi]; });
-  }
-  if (estado.egrExtras) {
-    Object.keys(estado.egrExtras).forEach(gi => { egrExtras[gi] = estado.egrExtras[gi]; });
-  }
-  if (estado._customSeq) _customSeq = estado._customSeq;
-  // Re-render con extras restaurados
-  initRecursos(); initEgresos();
+
+  // 11. Responsables
   if (estado.responsables) {
     Object.entries(estado.responsables).forEach(([id, val]) => {
       const el = document.getElementById(id+'-name');
       if(el&&val) { el.textContent=val; el.classList.remove('empty'); }
     });
   }
+
+  // 12. Recalcular todo
   updateAll();
+
+  // 13. Sincronizar displays de egresos (después del updateAll)
   egrData.forEach(e => {
     if(e.subs) return;
+    const inp=$(e.id), disp=$(e.id+'-disp');
+    if(inp&&disp&&inp.style.display==='none') disp.textContent=fmt(parseFloat(inp.value)||0);
+    const rd=$(e.id+'-ref-disp'), ri=$(e.id+'-ref-inp');
+    if(rd&&ri) rd.textContent=fmt(parseFloat(ri.value)||0);
+  });
+  // Extras de egresos
+  Object.values(egrExtras).flat().forEach(e => {
     const inp=$(e.id), disp=$(e.id+'-disp');
     if(inp&&disp&&inp.style.display==='none') disp.textContent=fmt(parseFloat(inp.value)||0);
     const rd=$(e.id+'-ref-disp'), ri=$(e.id+'-ref-inp');
