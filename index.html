@@ -2864,27 +2864,44 @@ function mostrarAvisoVersionAnterior(data) {
   window._pendingOldData = data;
 }
 
-function cargarDatosAnteriores() {
+async function cargarDatosAnteriores() {
   if (!window._pendingOldData) return;
   const data = window._pendingOldData;
   window._pendingOldData = null;
+  const banner = document.getElementById('version-banner');
+  if (banner) banner.remove();
+
+  // Aplicar estado
   _applying = true;
   aplicarEstado(data);
-  setTimeout(() => {
-    _applying = false;
-    // Guardar con la nueva versión del HTML
-    fbAutoSave();
-  }, 1000);
-  const banner = document.getElementById('version-banner');
-  if (banner) banner.remove();
+  await new Promise(r => setTimeout(r, 1200));
+  _applying = false;
+
+  // Guardar en Firebase con la versión nueva
+  setSyncStatus('saving');
+  try {
+    const estado = capturarEstado();
+    if (window._fbSave) await window._fbSave(estado);
+    setSyncStatus('live');
+  } catch(e) {
+    setSyncStatus('error');
+  }
 }
 
-function descartarDatosAnteriores() {
+async function descartarDatosAnteriores() {
   window._pendingOldData = null;
-  // Guardar el estado actual (defaults del nuevo HTML) en Firebase
-  fbAutoSave();
   const banner = document.getElementById('version-banner');
   if (banner) banner.remove();
+
+  // Guardar estado actual (defaults) en Firebase
+  setSyncStatus('saving');
+  try {
+    const estado = capturarEstado();
+    if (window._fbSave) await window._fbSave(estado);
+    setSyncStatus('live');
+  } catch(e) {
+    setSyncStatus('error');
+  }
 }
 
 function fbAutoSave() {
