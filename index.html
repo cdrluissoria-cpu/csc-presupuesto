@@ -24,14 +24,15 @@
   const db  = getFirestore(app);
   const DOC = doc(db, 'presupuesto', '2026');
 
-  let _guardandoEnFirebase = false;
-  let _debounceTimer = null;
+  // ID único de esta sesión — para ignorar los propios writes
+  const SESSION_ID = Math.random().toString(36).slice(2);
+  window._fbSessionId = SESSION_ID;
 
-  // ── Exponer funciones al scope global ──
+  // ── Guardar en Firebase ──
   window._fbSave = async (estado) => {
     try {
       setSyncStatus('saving');
-      await setDoc(DOC, { ...estado, _ts: serverTimestamp() }, { merge: false });
+      await setDoc(DOC, { ...estado, _sid: SESSION_ID, _ts: serverTimestamp() }, { merge: false });
       setSyncStatus('ok');
     } catch(e) {
       console.error('Firebase save error:', e);
@@ -43,12 +44,31 @@
   onSnapshot(DOC, snap => {
     if (!snap.exists()) { setSyncStatus('ok'); return; }
     const data = snap.data();
-    // Solo restaurar si hay datos y la página ya está inicializada
-    if (window._appReady && data && data.v) {
-      if (_guardandoEnFirebase) return; // evitar loop
-      window._fbRestore(data);
-    }
     setSyncStatus('ok');
+
+    // Ignorar si la app no está lista todavía
+    if (!window._appReady || !data || !data.v) return;
+
+    // IGNORAR si el write lo hizo ESTA misma sesión
+    if (data._sid === SESSION_ID) return;
+
+    // IGNORAR si el usuario está activamente editando un campo
+    if (window._userIsEditing) {
+      // Encolar la restauración para cuando termine de editar
+      window._pendingRemoteState = data;
+      setSyncStatus('ok');
+      // Mostrar aviso de que hay cambios pendientes de otro usuario
+      const el = document.getElementById('sync-status');
+      if (el) {
+        el.textContent = '🔄 cambios de otro usuario pendientes';
+        el.style.color = 'var(--warn)';
+        el.style.background = 'var(--warn-lt)';
+      }
+      return;
+    }
+
+    // Restaurar estado del otro usuario
+    window._fbRestore(data);
   }, err => {
     console.error('Firebase listen error:', err);
     setSyncStatus('error');
@@ -2598,6 +2618,32 @@ function exportarCSV() {
 
 // ─── FIREBASE SYNC ───
 let _fbDebounce = null;
+
+// Rastrear si el usuario está editando activamente
+window._userIsEditing = false;
+window._pendingRemoteState = null;
+
+document.addEventListener('focusin', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.contentEditable === 'true') {
+    window._userIsEditing = true;
+  }
+});
+document.addEventListener('focusout', e => {
+  // Pequeño delay para que el blur se procese antes de aplicar estado remoto
+  setTimeout(() => {
+    const active = document.activeElement;
+    const stillEditing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.contentEditable === 'true');
+    if (!stillEditing) {
+      window._userIsEditing = false;
+      // Aplicar estado remoto pendiente si lo hay
+      if (window._pendingRemoteState) {
+        const estado = window._pendingRemoteState;
+        window._pendingRemoteState = null;
+        window._fbRestore(estado);
+      }
+    }
+  }, 300);
+});
 
 function setSyncStatus(state) {
   const el = document.getElementById('sync-status');
