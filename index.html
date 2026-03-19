@@ -8,7 +8,7 @@
 <!-- Firebase -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp }
+  import { getFirestore, doc, setDoc, getDoc, onSnapshot, serverTimestamp }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -24,17 +24,13 @@
   const db  = getFirestore(app);
   const DOC = doc(db, 'presupuesto', '2026');
 
-  // ID único de esta sesión
   const SESSION_ID = Math.random().toString(36).slice(2) + Date.now();
   window._fbSessionId = SESSION_ID;
 
-  // Flag: estamos en medio de un save propio — ignorar el echo del listener
-  let _ownSaveTs = 0;
-
+  // ── GUARDAR en Firebase ──
   window._fbSave = async (estado) => {
     try {
       setSyncStatus('saving');
-      _ownSaveTs = Date.now();
       await setDoc(DOC, { ...estado, _sid: SESSION_ID, _ts: serverTimestamp() }, { merge: false });
       setSyncStatus('ok');
     } catch(e) {
@@ -43,21 +39,45 @@
     }
   };
 
+  // ── CARGAR desde Firebase (solo lectura puntual, sin listener) ──
+  window._fbLoad = async () => {
+    try {
+      setSyncStatus('saving');
+      const snap = await getDoc(DOC);
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data && data.v) {
+          window._pendingRemoteState = data;
+          setSyncStatus('ok');
+          return data;
+        }
+      }
+      setSyncStatus('ok');
+      return null;
+    } catch(e) {
+      console.error('Firebase load error:', e);
+      setSyncStatus('error');
+      return null;
+    }
+  };
+
+  // ── LISTENER solo para notificar que hay cambios — NO restaura automáticamente ──
+  let _lastKnownSid = SESSION_ID;
   onSnapshot(DOC, snap => {
-    if (!snap.exists()) { setSyncStatus('ok'); return; }
+    if (!snap.exists() || !window._appReady) return;
     const data = snap.data();
-    setSyncStatus('ok');
+    if (!data || !data.v) return;
 
-    if (!window._appReady || !data || !data.v) return;
-
-    // Ignorar si es nuestro propio write (mismo session ID)
+    // Ignorar cambios propios (incluyendo hasPendingWrites)
+    if (snap.metadata.hasPendingWrites) return;
     if (data._sid === SESSION_ID) return;
 
-    // Hay cambios de otro usuario — cancelar save local pendiente y mostrar aviso
-    if (window._cancelFbDebounce) window._cancelFbDebounce();
-    window._pendingRemoteState = data;
-    mostrarAvisoCambios();
-
+    // Es un cambio de otro usuario — solo mostrar aviso, NUNCA restaurar automáticamente
+    if (data._sid !== _lastKnownSid) {
+      _lastKnownSid = data._sid;
+      window._pendingRemoteState = data;
+      mostrarAvisoCambios();
+    }
   }, err => {
     console.error('Firebase listen error:', err);
     setSyncStatus('error');
@@ -2625,26 +2645,20 @@ function aplicarCambiosRemotos() {
   const estado = window._pendingRemoteState;
   window._pendingRemoteState = null;
 
-  // CRÍTICO: cancelar cualquier auto-save pendiente antes de restaurar
-  if (window._cancelFbDebounce) window._cancelFbDebounce();
-  clearTimeout(_fbDebounce);
-  _fbDebounce = null;
+  // Cancelar cualquier auto-save pendiente
+  window._cancelFbDebounce && window._cancelFbDebounce();
 
-  // Bloquear fbAutoSave durante la restauración y por 3s después
+  // Bloquear fbAutoSave durante la restauración
   _restoringFromRemote = true;
   clearTimeout(_restoreTimer);
 
-  try {
-    aplicarEstado(estado);
-  } catch(e) {
-    console.error('Error aplicando estado remoto:', e);
-  }
+  aplicarEstado(estado);
 
-  // Liberar el flag después de 3s — suficiente para que updateAll y todos sus efectos terminen
+  // Mantener bloqueado 4s para que todos los efectos de updateAll terminen
   _restoreTimer = setTimeout(() => {
     _restoringFromRemote = false;
     setSyncStatus('ok');
-  }, 3000);
+  }, 4000);
 }
 
 let _restoreTimer = null;
@@ -2840,6 +2854,22 @@ initResponsables();
 renderInv();
 updateAll();
 window._appReady = true;
+
+// Cargar estado desde Firebase al iniciar
+setTimeout(async () => {
+  if (window._fbLoad) {
+    const data = await window._fbLoad();
+    if (data && data.v) {
+      // Solo aplicar si Firebase tiene datos más recientes que los defaults
+      _restoringFromRemote = true;
+      aplicarEstado(data);
+      _restoreTimer = setTimeout(() => {
+        _restoringFromRemote = false;
+        setSyncStatus('ok');
+      }, 4000);
+    }
+  }
+}, 1500); // esperar 1.5s para que Firebase module se inicialice
 </script>
 </body>
 </html>
