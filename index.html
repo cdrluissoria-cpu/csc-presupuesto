@@ -8,7 +8,7 @@
 <!-- Firebase -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp }
+  import { getFirestore, doc, setDoc, getDoc, onSnapshot }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -22,44 +22,46 @@
 
   const app = initializeApp(firebaseConfig);
   const db  = getFirestore(app);
-  const DATA_DOC  = doc(db, 'presupuesto', '2026');
-  const LOCK_DOC  = doc(db, 'presupuesto', 'control');
+  const DOC = doc(db, 'presupuesto', '2026');
 
-  // ── Guardar datos ──
+  // ── GUARDAR ──
   window._fbSave = async (estado) => {
-    await setDoc(DATA_DOC, estado);
+    await setDoc(DOC, estado);
   };
 
-  // ── Tomar / liberar control ──
-  window._fbTakeControl = async (nombre) => {
-    await setDoc(LOCK_DOC, { editor: nombre, ts: serverTimestamp(), libre: false });
-  };
-  window._fbReleaseControl = async (estado, nombre) => {
-    await setDoc(DATA_DOC, estado);
-    await setDoc(LOCK_DOC, { editor: '', ts: serverTimestamp(), libre: true });
-  };
-  window._fbForceRelease = async () => {
-    await setDoc(LOCK_DOC, { editor: '', ts: serverTimestamp(), libre: true });
-  };
-
-  // ── Escuchar datos: solo cuando no hay editor activo (libre=true o yo soy el editor) ──
-  onSnapshot(DATA_DOC, snap => {
-    if (!snap.exists() || !window._appReady) return;
-    const data = snap.data();
-    if (!data || !data.v) return;
-    // Solo aplicar si el control fue liberado (nos llega después de fbReleaseControl)
-    if (window._fbApply) window._fbApply(data);
-  }, err => console.error('Firebase data error:', err));
-
-  // ── Escuchar control de edición ──
-  onSnapshot(LOCK_DOC, snap => {
-    if (!window._appReady) return;
-    if (!snap.exists()) {
-      window._fbLockUpdate && window._fbLockUpdate({ libre: true, editor: '' });
-      return;
+  // ── CARGA INICIAL (F5 / primera vez) ──
+  // Espera a que el main script esté listo, luego lee Firebase y arranca el listener
+  window._fbInit = async () => {
+    try {
+      setSyncStatus('connecting');
+      const snap = await getDoc(DOC);
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data && data.v) {
+          _applying = true;
+          aplicarEstado(data);
+          await new Promise(r => setTimeout(r, 1000));
+          _applying = false;
+        }
+      }
+      setSyncStatus('live');
+    } catch(e) {
+      console.error('Firebase init error:', e);
+      setSyncStatus('error');
     }
-    window._fbLockUpdate && window._fbLockUpdate(snap.data());
-  }, err => console.error('Firebase lock error:', err));
+
+    // Arrancar listener en tiempo real DESPUÉS de la carga inicial
+    window._appReady = true;
+    onSnapshot(DOC, { includeMetadataChanges: false }, snap => {
+      if (!snap.exists() || !window._appReady) return;
+      const data = snap.data();
+      if (!data || !data.v) return;
+      window._fbApply && window._fbApply(data);
+    }, err => {
+      console.error('Firebase listener error:', err);
+      setSyncStatus('error');
+    });
+  };
 </script>
 <style>
 :root {
@@ -2927,11 +2929,17 @@ initUnidadesER();
 initResponsables();
 renderInv();
 updateAll();
-setSyncStatus('connecting', '');
+
+// Firebase: cargar estado guardado (getDoc) y luego arrancar listener en tiempo real
+// _appReady se setea dentro de _fbInit luego de la carga inicial
 setTimeout(() => {
-  window._appReady = true;
-  // El onSnapshot de LOCK_DOC actualizará el estado automáticamente
-}, 1500);
+  if (window._fbInit) {
+    window._fbInit();
+  } else {
+    window._appReady = true;
+    setSyncStatus('live');
+  }
+}, 500);
 </script>
 </body>
 </html>
