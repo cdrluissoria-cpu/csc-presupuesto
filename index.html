@@ -53,7 +53,8 @@
     // Ignorar si es nuestro propio write (mismo session ID)
     if (data._sid === SESSION_ID) return;
 
-    // Hay cambios de otro usuario — mostrar botón para aplicar
+    // Hay cambios de otro usuario — cancelar save local pendiente y mostrar aviso
+    if (window._cancelFbDebounce) window._cancelFbDebounce();
     window._pendingRemoteState = data;
     mostrarAvisoCambios();
 
@@ -2606,6 +2607,8 @@ function exportarCSV() {
 
 // ─── FIREBASE SYNC ───
 let _fbDebounce = null;
+window._getFbDebounce = () => _fbDebounce;
+window._cancelFbDebounce = () => { clearTimeout(_fbDebounce); _fbDebounce = null; };
 let _restoringFromRemote = false; // flag: estamos aplicando estado remoto, no guardar
 window._pendingRemoteState = null;
 
@@ -2621,18 +2624,30 @@ function aplicarCambiosRemotos() {
   if (!window._pendingRemoteState) return;
   const estado = window._pendingRemoteState;
   window._pendingRemoteState = null;
-  // Bloquear fbAutoSave durante toda la restauración
+
+  // CRÍTICO: cancelar cualquier auto-save pendiente antes de restaurar
+  if (window._cancelFbDebounce) window._cancelFbDebounce();
+  clearTimeout(_fbDebounce);
+  _fbDebounce = null;
+
+  // Bloquear fbAutoSave durante la restauración y por 3s después
   _restoringFromRemote = true;
+  clearTimeout(_restoreTimer);
+
   try {
     aplicarEstado(estado);
-  } finally {
-    // Limpiar el flag después de que todos los eventos del DOM se procesen
-    setTimeout(() => {
-      _restoringFromRemote = false;
-      setSyncStatus('ok');
-    }, 500);
+  } catch(e) {
+    console.error('Error aplicando estado remoto:', e);
   }
+
+  // Liberar el flag después de 3s — suficiente para que updateAll y todos sus efectos terminen
+  _restoreTimer = setTimeout(() => {
+    _restoringFromRemote = false;
+    setSyncStatus('ok');
+  }, 3000);
 }
+
+let _restoreTimer = null;
 
 // Exponer restaurador para Firebase listener — NO dispara fbAutoSave
 window._fbRestore = function(estado) {
@@ -2659,14 +2674,16 @@ function setSyncStatus(state) {
 }
 
 function fbAutoSave() {
-  // No guardar si estamos aplicando un estado remoto (evita loop)
+  // No programar si estamos restaurando
   if (_restoringFromRemote) return;
   clearTimeout(_fbDebounce);
   _fbDebounce = setTimeout(() => {
+    // Verificar de nuevo al momento de ejecutar (puede haber cambiado)
+    if (_restoringFromRemote) return;
     if (!window._fbSave) return;
     const estado = capturarEstado();
     window._fbSave(estado);
-  }, 2000); // 2 segundos de debounce para estabilidad
+  }, 2500);
 }
 
 function capturarEstado() {
