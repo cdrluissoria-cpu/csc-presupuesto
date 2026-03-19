@@ -8,7 +8,7 @@
 <!-- Firebase -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp }
+  import { getFirestore, doc, setDoc, onSnapshot }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -26,26 +26,21 @@
 
   // ── GUARDAR ──
   window._fbSave = async (estado) => {
-    try {
-      setSyncStatus('saving');
-      await setDoc(DOC, estado);
-      setSyncStatus('ok');
-    } catch(e) {
-      setSyncStatus('error');
-    }
+    await setDoc(DOC, estado);
   };
 
   // ── ESCUCHAR EN TIEMPO REAL ──
-  // Igual que la Agenda: onSnapshot simple, aplica siempre que no sea nuestro propio write
+  // includeMetadataChanges:false = solo eventos confirmados por el servidor
+  // Esto evita el "echo" del write propio
   onSnapshot(DOC, { includeMetadataChanges: false }, snap => {
-    // includeMetadataChanges:false → solo eventos confirmados por el servidor, nunca el echo local
     if (!snap.exists() || !window._appReady) return;
     const data = snap.data();
     if (!data || !data.v) return;
-    // Aplicar directamente — el flag _applying en el main script evita el loop
     window._fbApply && window._fbApply(data);
-    setSyncStatus('ok');
-  }, err => setSyncStatus('error'));
+  }, err => {
+    console.error('Firebase error:', err);
+    if (typeof setSyncStatus === 'function') setSyncStatus('error');
+  });
 </script>
 <style>
 :root {
@@ -496,6 +491,15 @@ tr.row-group td {
   outline: none;
 }
 
+@keyframes pulse-green {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+@keyframes pulse-orange {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 /* PRINT */
 @page { size: A4 portrait; margin: 1.2cm 1.0cm; }
 @page landscape { size: A4 landscape; margin: 0.7cm 0.8cm; }
@@ -678,10 +682,13 @@ tr.acc-subtotal td {
   <span id="header-periodo">PRESUPUESTO 2026 · PERÍODO MAR 2026 – FEB 2027</span>
   <div class="header-right">
     <span class="status-dot"></span>
-    <span id="last-saved">conectando...</span>
-    <span id="sync-status" style="font-size:10px;padding:2px 8px;border-radius:12px;background:var(--surface2);color:var(--text3)">⏳ sincronizando</span>
-    <button class="btn" style="padding:5px 12px;font-size:11px;color:#4A9E6A;border-color:#4A9E6A" onclick="guardarEstado()" title="Guarda todos los datos en un archivo .json">💾 guardar estado</button>
-    <button class="btn" style="padding:5px 12px;font-size:11px;color:#6A9EC4;border-color:#6A9EC4" onclick="$('cargar-inp').click()" title="Carga un archivo .json guardado previamente">📂 cargar estado</button>
+    <span id="last-saved" style="font-size:11px;color:var(--text3)">conectando...</span>
+    <span id="sync-status" style="font-size:11px;padding:3px 10px;border-radius:12px;background:#e8f5e9;color:#2e7d32;font-weight:500;display:inline-flex;align-items:center;gap:5px">
+      <span id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:#4caf50;display:inline-block;animation:pulse-green 2s infinite"></span>
+      <span id="sync-text">en vivo</span>
+    </span>
+    <button class="btn" style="padding:5px 12px;font-size:11px;color:#4A9E6A;border-color:#4A9E6A" onclick="guardarEstado()" title="Guarda todos los datos en un archivo .json">💾 guardar</button>
+    <button class="btn" style="padding:5px 12px;font-size:11px;color:#6A9EC4;border-color:#6A9EC4" onclick="$('cargar-inp').click()" title="Carga un archivo .json guardado previamente">📂 cargar</button>
     <input type="file" id="cargar-inp" accept=".json" style="display:none" onchange="cargarEstado(event)">
     <button class="btn" style="padding:5px 12px;font-size:11px;color:var(--bg);border-color:#555" onclick="exportarCSV()">↓ CSV</button>
     <button class="btn" style="padding:5px 12px;font-size:11px;color:var(--bg);border-color:#555" onclick="imprimirApp()">imprimir</button>
@@ -2590,50 +2597,61 @@ function exportarCSV() {
 }
 
 // ─── FIREBASE SYNC ───
-// Mismo patrón que la Agenda Estratégica:
-// - _applying: true mientras aplicamos datos de Firebase → fbSave no guarda
-// - fbSave: guarda con debounce cuando el usuario edita
-// - _fbApply: recibe datos del onSnapshot y los aplica si no somos nosotros los que guardamos
-
 let _fbDebounce = null;
-let _applying = false;
+let _applying = false;  // true = estamos aplicando datos remotos O guardando propios
+
 window._cancelFbDebounce = () => { clearTimeout(_fbDebounce); _fbDebounce = null; };
 
-// Firebase llama esto cuando hay cambios en el servidor
+// Firebase llama esto cuando llegan datos del servidor
 window._fbApply = function(data) {
-  if (_applying) return; // estamos guardando nosotros, ignorar el echo
+  if (_applying) return; // somos nosotros quienes guardamos — ignorar el echo
   _applying = true;
   aplicarEstado(data);
-  // Dar tiempo a que updateAll termine antes de liberar el flag
-  setTimeout(() => { _applying = false; }, 1000);
+  setTimeout(() => { _applying = false; }, 800);
 };
 
-function setSyncStatus(state) {
-  const el = document.getElementById('sync-status');
-  if (!el) return;
-  if (state === 'saving') {
-    el.textContent = '☁️ guardando...';
-    el.style.color = 'var(--warn)'; el.style.background = 'var(--warn-lt)';
-  } else if (state === 'ok') {
-    el.textContent = '✓ sincronizado';
-    el.style.color = 'var(--accent)'; el.style.background = 'var(--accent-lt)';
+function setSyncStatus(state, msg) {
+  const dot = document.getElementById('sync-dot');
+  const txt = document.getElementById('sync-text');
+  const box = document.getElementById('sync-status');
+  if (!dot || !txt || !box) return;
+
+  if (state === 'live') {
+    box.style.background = '#e8f5e9'; box.style.color = '#2e7d32';
+    dot.style.background = '#4caf50'; dot.style.animation = 'pulse-green 2s infinite';
+    txt.textContent = 'en vivo';
+  } else if (state === 'saving') {
+    box.style.background = '#fff8e1'; box.style.color = '#f57f17';
+    dot.style.background = '#ffa726'; dot.style.animation = 'pulse-orange 1s infinite';
+    txt.textContent = 'guardando...';
   } else if (state === 'error') {
-    el.textContent = '✕ sin conexión';
-    el.style.color = 'var(--danger)'; el.style.background = '#fde8e8';
+    box.style.background = '#ffebee'; box.style.color = '#c62828';
+    dot.style.background = '#ef5350'; dot.style.animation = 'none';
+    txt.textContent = 'sin conexión';
+  } else if (state === 'connecting') {
+    box.style.background = 'var(--surface2)'; box.style.color = 'var(--text3)';
+    dot.style.background = '#aaa'; dot.style.animation = 'pulse-green 2s infinite';
+    txt.textContent = 'conectando...';
   }
 }
 
 function fbAutoSave() {
-  if (_applying) return; // no guardar mientras aplicamos datos remotos
+  if (_applying) return;
   clearTimeout(_fbDebounce);
-  _fbDebounce = setTimeout(() => {
+  _fbDebounce = setTimeout(async () => {
     if (_applying) return;
     if (!window._fbSave) return;
-    _applying = true; // marcar que vamos a guardar
-    const estado = capturarEstado();
-    window._fbSave(estado).finally(() => {
-      setTimeout(() => { _applying = false; }, 1000);
-    });
+    _applying = true;
+    setSyncStatus('saving');
+    try {
+      const estado = capturarEstado();
+      await window._fbSave(estado);
+    } finally {
+      setTimeout(() => {
+        _applying = false;
+        setSyncStatus('live');
+      }, 800);
+    }
   }, 1500);
 }
 
@@ -2790,9 +2808,12 @@ initUnidadesER();
 initResponsables();
 renderInv();
 updateAll();
-// Marcar app lista — onSnapshot empezará a recibir datos de Firebase
-window._appReady = true;
-setSyncStatus('ok');
+setSyncStatus('connecting');
+// Pequeño delay para que el módulo Firebase se inicialice
+setTimeout(() => {
+  window._appReady = true;
+  setSyncStatus('live');
+}, 2000);
 </script>
 </body>
 </html>
