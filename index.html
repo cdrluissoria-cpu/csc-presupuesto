@@ -8,7 +8,7 @@
 <!-- Firebase -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, onSnapshot }
+  import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -22,25 +22,44 @@
 
   const app = initializeApp(firebaseConfig);
   const db  = getFirestore(app);
-  const DOC = doc(db, 'presupuesto', '2026');
+  const DATA_DOC  = doc(db, 'presupuesto', '2026');
+  const LOCK_DOC  = doc(db, 'presupuesto', 'control');
 
-  // ── GUARDAR ──
+  // ── Guardar datos ──
   window._fbSave = async (estado) => {
-    await setDoc(DOC, estado);
+    await setDoc(DATA_DOC, estado);
   };
 
-  // ── ESCUCHAR EN TIEMPO REAL ──
-  // includeMetadataChanges:false = solo eventos confirmados por el servidor
-  // Esto evita el "echo" del write propio
-  onSnapshot(DOC, { includeMetadataChanges: false }, snap => {
+  // ── Tomar / liberar control ──
+  window._fbTakeControl = async (nombre) => {
+    await setDoc(LOCK_DOC, { editor: nombre, ts: serverTimestamp(), libre: false });
+  };
+  window._fbReleaseControl = async (estado, nombre) => {
+    await setDoc(DATA_DOC, estado);
+    await setDoc(LOCK_DOC, { editor: '', ts: serverTimestamp(), libre: true });
+  };
+  window._fbForceRelease = async () => {
+    await setDoc(LOCK_DOC, { editor: '', ts: serverTimestamp(), libre: true });
+  };
+
+  // ── Escuchar datos: solo cuando no hay editor activo (libre=true o yo soy el editor) ──
+  onSnapshot(DATA_DOC, snap => {
     if (!snap.exists() || !window._appReady) return;
     const data = snap.data();
     if (!data || !data.v) return;
-    window._fbApply && window._fbApply(data);
-  }, err => {
-    console.error('Firebase error:', err);
-    if (typeof setSyncStatus === 'function') setSyncStatus('error');
-  });
+    // Solo aplicar si el control fue liberado (nos llega después de fbReleaseControl)
+    if (window._fbApply) window._fbApply(data);
+  }, err => console.error('Firebase data error:', err));
+
+  // ── Escuchar control de edición ──
+  onSnapshot(LOCK_DOC, snap => {
+    if (!window._appReady) return;
+    if (!snap.exists()) {
+      window._fbLockUpdate && window._fbLockUpdate({ libre: true, editor: '' });
+      return;
+    }
+    window._fbLockUpdate && window._fbLockUpdate(snap.data());
+  }, err => console.error('Firebase lock error:', err));
 </script>
 <style>
 :root {
@@ -685,10 +704,12 @@ tr.acc-subtotal td {
     <span id="last-saved" style="font-size:11px;color:var(--text3)">conectando...</span>
     <span id="sync-status" style="font-size:11px;padding:3px 10px;border-radius:12px;background:#e8f5e9;color:#2e7d32;font-weight:500;display:inline-flex;align-items:center;gap:5px">
       <span id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:#4caf50;display:inline-block;animation:pulse-green 2s infinite"></span>
-      <span id="sync-text">en vivo</span>
+      <span id="sync-text">conectando...</span>
     </span>
-    <button class="btn" style="padding:5px 12px;font-size:11px;color:#4A9E6A;border-color:#4A9E6A" onclick="guardarEstado()" title="Guarda todos los datos en un archivo .json">💾 guardar</button>
-    <button class="btn" style="padding:5px 12px;font-size:11px;color:#6A9EC4;border-color:#6A9EC4" onclick="$('cargar-inp').click()" title="Carga un archivo .json guardado previamente">📂 cargar</button>
+    <button id="btn-tomar" class="btn" style="padding:5px 14px;font-size:11px;color:#2e7d32;border-color:#2e7d32;font-weight:500" onclick="tomarControl()" title="Tomar control de edición">✏️ tomar control</button>
+    <button id="btn-liberar" class="btn" style="padding:5px 14px;font-size:11px;color:#c62828;border-color:#c62828;font-weight:500;display:none" onclick="liberarControl()" title="Guardar y liberar edición">✓ liberar</button>
+    <button class="btn" style="padding:5px 12px;font-size:11px;color:#4A9E6A;border-color:#4A9E6A" onclick="guardarEstado()">💾 backup</button>
+    <button class="btn" style="padding:5px 12px;font-size:11px;color:#6A9EC4;border-color:#6A9EC4" onclick="$('cargar-inp').click()">📂 restaurar</button>
     <input type="file" id="cargar-inp" accept=".json" style="display:none" onchange="cargarEstado(event)">
     <button class="btn" style="padding:5px 12px;font-size:11px;color:var(--bg);border-color:#555" onclick="exportarCSV()">↓ CSV</button>
     <button class="btn" style="padding:5px 12px;font-size:11px;color:var(--bg);border-color:#555" onclick="imprimirApp()">imprimir</button>
@@ -2463,7 +2484,6 @@ function updateAll() {
   calcResumen();
   calcPE();
   $('last-saved').textContent = 'actualizado ' + new Date().toLocaleTimeString('es-AR');
-  if (window._appReady && !_applying) fbAutoSave();
 }
 
 function imprimirApp() {
@@ -2596,64 +2616,131 @@ function exportarCSV() {
   a.click();
 }
 
-// ─── FIREBASE SYNC ───
+// ─── FIREBASE SYNC — MODO TURNOS ───
+let _miNombre = '';
+let _tengoControl = false;
+let _editorActual = '';
 let _fbDebounce = null;
-let _applying = false;  // true = estamos aplicando datos remotos O guardando propios
-
 window._cancelFbDebounce = () => { clearTimeout(_fbDebounce); _fbDebounce = null; };
 
-// Firebase llama esto cuando llegan datos del servidor
+// Cuando llegan datos nuevos de Firebase (después de que otro liberó)
 window._fbApply = function(data) {
-  if (_applying) return; // somos nosotros quienes guardamos — ignorar el echo
-  _applying = true;
+  if (_tengoControl) return; // yo soy el editor, ignoro
   aplicarEstado(data);
-  setTimeout(() => { _applying = false; }, 800);
+  setSyncStatus('libre', _editorActual);
 };
 
-function setSyncStatus(state, msg) {
+// Cuando cambia el estado de control
+window._fbLockUpdate = function(lockData) {
+  _editorActual = lockData.editor || '';
+  const libre = lockData.libre !== false && !_editorActual;
+
+  if (libre) {
+    // Nadie editando
+    setSyncStatus('libre', '');
+    setReadOnly(false);
+    $('btn-tomar').style.display = '';
+    $('btn-liberar').style.display = 'none';
+    // Si yo acabo de liberar, ya guardé — no hacer nada más
+  } else if (_editorActual === _miNombre) {
+    // Yo tengo el control
+    _tengoControl = true;
+    setSyncStatus('editando', _miNombre);
+    setReadOnly(false);
+    $('btn-tomar').style.display = 'none';
+    $('btn-liberar').style.display = '';
+  } else {
+    // Otro tiene el control
+    _tengoControl = false;
+    setSyncStatus('bloqueado', _editorActual);
+    setReadOnly(true);
+    $('btn-tomar').style.display = 'none';
+    $('btn-liberar').style.display = 'none';
+  }
+};
+
+function setReadOnly(editable) {
+  // Bloquear/desbloquear todos los inputs
+  const inputs = document.querySelectorAll('input:not([type="file"]), [contenteditable]');
+  inputs.forEach(el => {
+    if (el.tagName === 'INPUT') {
+      el.disabled = !editable;
+      el.style.opacity = editable ? '' : '0.5';
+    } else {
+      el.contentEditable = editable ? 'true' : 'false';
+      el.style.opacity = editable ? '' : '0.5';
+    }
+  });
+  // Bloquear spans clickeables de edición
+  document.querySelectorAll('[onclick]').forEach(el => {
+    if (!el.closest('nav') && !el.closest('.header')) {
+      el.style.pointerEvents = editable ? '' : 'none';
+      el.style.opacity = editable ? '' : '0.6';
+    }
+  });
+}
+
+async function tomarControl() {
+  const nombre = prompt('¿Con qué nombre vas a editar?', _miNombre || '');
+  if (!nombre || !nombre.trim()) return;
+  _miNombre = nombre.trim();
+  _tengoControl = true;
+  if (window._fbTakeControl) await window._fbTakeControl(_miNombre);
+}
+
+async function liberarControl() {
+  if (!_tengoControl) return;
+  _tengoControl = false;
+  setSyncStatus('guardando', '');
+  const estado = capturarEstado();
+  if (window._fbReleaseControl) await window._fbReleaseControl(estado, _miNombre);
+  _miNombre = '';
+  setSyncStatus('libre', '');
+}
+
+function setSyncStatus(state, editor) {
   const dot = document.getElementById('sync-dot');
   const txt = document.getElementById('sync-text');
   const box = document.getElementById('sync-status');
   if (!dot || !txt || !box) return;
-
-  if (state === 'live') {
+  if (state === 'libre') {
     box.style.background = '#e8f5e9'; box.style.color = '#2e7d32';
     dot.style.background = '#4caf50'; dot.style.animation = 'pulse-green 2s infinite';
-    txt.textContent = 'en vivo';
-  } else if (state === 'saving') {
-    box.style.background = '#fff8e1'; box.style.color = '#f57f17';
-    dot.style.background = '#ffa726'; dot.style.animation = 'pulse-orange 1s infinite';
-    txt.textContent = 'guardando...';
-  } else if (state === 'error') {
-    box.style.background = '#ffebee'; box.style.color = '#c62828';
-    dot.style.background = '#ef5350'; dot.style.animation = 'none';
-    txt.textContent = 'sin conexión';
+    txt.textContent = 'libre para editar';
+  } else if (state === 'editando') {
+    box.style.background = '#e3f2fd'; box.style.color = '#1565c0';
+    dot.style.background = '#42a5f5'; dot.style.animation = 'pulse-green 1.5s infinite';
+    txt.textContent = '✏️ editando: ' + editor;
+  } else if (state === 'bloqueado') {
+    box.style.background = '#fff8e1'; box.style.color = '#e65100';
+    dot.style.background = '#ffa726'; dot.style.animation = 'pulse-orange 1.5s infinite';
+    txt.textContent = '🔒 editando: ' + editor;
+  } else if (state === 'guardando') {
+    box.style.background = '#f3e5f5'; box.style.color = '#6a1b9a';
+    dot.style.background = '#ab47bc'; dot.style.animation = 'pulse-green 1s infinite';
+    txt.textContent = '☁️ guardando...';
   } else if (state === 'connecting') {
     box.style.background = 'var(--surface2)'; box.style.color = 'var(--text3)';
     dot.style.background = '#aaa'; dot.style.animation = 'pulse-green 2s infinite';
     txt.textContent = 'conectando...';
+  } else if (state === 'error') {
+    box.style.background = '#ffebee'; box.style.color = '#c62828';
+    dot.style.background = '#ef5350'; dot.style.animation = 'none';
+    txt.textContent = 'sin conexión';
   }
 }
 
 function fbAutoSave() {
-  if (_applying) return;
-  clearTimeout(_fbDebounce);
-  _fbDebounce = setTimeout(async () => {
-    if (_applying) return;
-    if (!window._fbSave) return;
-    _applying = true;
-    setSyncStatus('saving');
-    try {
-      const estado = capturarEstado();
-      await window._fbSave(estado);
-    } finally {
-      setTimeout(() => {
-        _applying = false;
-        setSyncStatus('live');
-      }, 800);
-    }
-  }, 1500);
+  // Sin modo turnos no hay auto-save — el guardado es manual al liberar control
 }
+
+// Aviso antes de cerrar si tenés el control
+window.addEventListener('beforeunload', e => {
+  if (_tengoControl) {
+    e.preventDefault();
+    e.returnValue = 'Tenés el control de edición activo. ¿Seguro que querés salir sin liberar?';
+  }
+});
 
 function capturarEstado() {
   const estado = { v: 2, ts: new Date().toISOString() };
@@ -2808,12 +2895,11 @@ initUnidadesER();
 initResponsables();
 renderInv();
 updateAll();
-setSyncStatus('connecting');
-// Pequeño delay para que el módulo Firebase se inicialice
+setSyncStatus('connecting', '');
 setTimeout(() => {
   window._appReady = true;
-  setSyncStatus('live');
-}, 2000);
+  // El onSnapshot de LOCK_DOC actualizará el estado automáticamente
+}, 1500);
 </script>
 </body>
 </html>
