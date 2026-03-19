@@ -2045,16 +2045,15 @@ function calcEgresos() {
 }
 
 function getTotalEgresos() {
+  // Total egresos operativos del Colegio:
+  // = todos los egresos - sueldos de unidades (est/can/uni)
+  // Los sueldos de unidades van en getUnidadTotals(), no aquí
   const total511Unidades = egrGroups[0].items
     .filter(e => e.subs)
     .reduce((s, e) => s + num(`${e.id}-est`) + num(`${e.id}-can`) + num(`${e.id}-uni`), 0);
-  const baseTotal = egrData.reduce((s,e) => s + num(e.id), 0);
+  const baseTotal   = egrData.reduce((s,e) => s + num(e.id), 0);
   const extrasTotal = Object.values(egrExtras).flat().reduce((s,e) => s + num(e.id), 0);
   return baseTotal + extrasTotal - total511Unidades;
-}
-
-function getTotalEgresos() {
-  return egrData.reduce((s,e) => s + num(e.id), 0);
 }
 
 // ─── UNIDADES DE NEGOCIO — ESTADO DE RESULTADO ───
@@ -2196,28 +2195,16 @@ function calcUnidadesER() {
 function renderUnidadesER() { calcUnidadesER(); }
 
 function getUnidadTotals() {
-  // Incluye costos 514 + sueldos propios 511 por unidad
+  // gas = SOLO sueldos propios de cada unidad (sub-cuentas 511 est/can/uni)
+  // Los costos 514 ya están contabilizados en getTotalEgresos()
   let ing = 0, gas = 0;
   unidadesER.forEach(u => {
     ing += u.ingIds.reduce((s,id)=>s+getRecVal(id),0);
-    const gasOp = u.gasIds.reduce((s,id)=>s+getEgrVal(id),0);
-    const gasExtra = get511UnitTotal(u.id);
-    gas += gasOp + gasExtra;
+    gas += get511UnitTotal(u.id); // solo sueldos propios
   });
   return {ing, gas, res: ing-gas};
 }
 
-function getTotalEgresos() {
-  // Total egresos operativos EXCLUYENDO las sub-cuentas 511 de unidades
-  // (esas van al consolidado de unidades, no al total general)
-  const total511Unidades = egrGroups[0].items
-    .filter(e => e.subs)
-    .reduce((s, e) => {
-      // Sumar solo est, can, uni — NO col (Colegio sí va a egresos generales)
-      return s + num(`${e.id}-est`) + num(`${e.id}-can`) + num(`${e.id}-uni`);
-    }, 0);
-  return egrData.reduce((s,e) => s + num(e.id), 0) - total511Unidades;
-}
 
 // ─── INVERSIONES ───
 let invItems = [
@@ -2275,79 +2262,198 @@ function getTotalInv() { return invItems.reduce((s,it)=>s+it.qty*it.pu,0); }
 
 // ─── RESUMEN ───
 function calcResumen() {
-  const inicio = calcInicio();
-  const recOp = calcRecursos();
-  const egr = getTotalEgresos();
-  const uni = getUnidadTotals();
-  const inv = getTotalInv();
+  const inicio    = calcInicio();
+  const recOpFull = calcRecursos(); // incluye ingresos de unidades
+  const uni       = getUnidadTotals();
+  const recOp     = recOpFull - uni.ing; // recursos operativos sin ingresos de unidades
+  const egr       = getTotalEgresos();
+  const inv       = getTotalInv();
   const superavit = (recOp + uni.ing) - (egr + uni.gas);
-  const final = inicio + superavit - inv;
+  const final     = inicio + superavit - inv;
 
-  const lines = [
-    {label:'Posición Financiera al Inicio', val:inicio, class:''},
-    {label:'+ Recursos Operativos', val:recOp, class:''},
-    {label:'+ Ingresos Unidades de Negocio', val:uni.ing, class:''},
-    {label:'= Total Recursos', val:recOp+uni.ing, class:'subtot'},
-    {label:'− Egresos Operativos', val:-egr, class:''},
-    {label:'− Costos Unidades de Negocio', val:-uni.gas, class:''},
-    {label:'= Total Egresos', val:-(egr+uni.gas), class:'subtot'},
-    {label:'Superávit / Déficit del Ejercicio', val:superavit, class:'subtot'},
-    {label:'− Inversiones / Variación Capital de Trabajo', val:-inv, class:''},
-    {label:'Posición Financiera Final', val:final, class:'total'},
-  ];
+  // ── Helpers de renderizado ──
+  const color = v => v < 0 ? 'var(--danger)' : 'inherit';
+  const fv = (v, forceNeg) => {
+    const neg = forceNeg || v < 0;
+    const s = fmt(Math.abs(v));
+    return `<span style="font-weight:500;color:${neg?'var(--danger)':'inherit'}">${neg?'('+s+')':s}</span>`;
+  };
 
-  $('resumen-lines').innerHTML = lines.map(l => `
-    <div class="resumen-line ${l.class}">
-      <span>${l.label}</span>
-      <span style="color:${l.val<0?'var(--danger)':'inherit'}">${l.val<0?'('+fmt(-l.val)+')':fmt(l.val)}</span>
+  const lineSimple = (label, val, cls='') => `
+    <div class="resumen-line ${cls}" style="display:flex;justify-content:space-between;align-items:center">
+      <span>${label}</span>${fv(val)}
+    </div>`;
+
+  const lineGroup = (gid, label, val, neg=false) => `
+    <div class="resumen-line" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="toggleResGrp('${gid}')">
+      <span style="display:flex;align-items:center;gap:6px">
+        <i id="rg-icon-${gid}" style="font-style:normal;font-size:10px;display:inline-block;transition:transform .15s;width:12px">▶</i>
+        ${label}
+      </span>${fv(val, neg)}
     </div>
-  `).join('');
+    <div id="rg-rows-${gid}" style="display:none;background:var(--surface);border-left:3px solid var(--border2)">`;
 
-  const masaSal = num('e-sue') + num('e-cc');
-  const totalEgr = getTotalEgresos();
-  const capitalTrabajo = Math.round(totalEgr / 12);
-  const reservaIndem = num('e-indem');
-  const reservaMant = num('e-rep-ed');
-  const reservaObras = getTotalInv();
-  const totalReservas = capitalTrabajo + reservaIndem + reservaMant + reservaObras;
+  const lineDetail = (cod, label, val, neg=false) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 16px 5px 28px;font-size:12px;color:var(--text2);border-bottom:0.5px solid var(--border)">
+      <span><span style="font-size:10px;color:var(--text3);margin-right:6px;font-family:'DM Mono',monospace">${cod}</span>${label}</span>
+      ${fv(val, neg)}
+    </div>`;
 
-  $('reservas-grid').innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
-      <div class="metric">
-        <div class="mlabel">Capital de Trabajo</div>
-        <div class="mlabel" style="font-size:10px;margin-bottom:4px">(1 mes de gastos totales)</div>
-        <div class="mval" style="font-size:16px">${fmt(capitalTrabajo)}</div>
-      </div>
-      <div class="metric">
-        <div class="mlabel">Reserva Indemnizaciones</div>
-        <div class="mlabel" style="font-size:10px;margin-bottom:4px">(511005 · valor anual)</div>
-        <div class="mval" style="font-size:16px">${fmt(reservaIndem)}</div>
-      </div>
-      <div class="metric">
-        <div class="mlabel">Reserva Mantenimiento</div>
-        <div class="mlabel" style="font-size:10px;margin-bottom:4px">(512005 · Edif. y Conserv.)</div>
-        <div class="mval" style="font-size:16px">${fmt(reservaMant)}</div>
-      </div>
-      <div class="metric">
-        <div class="mlabel">Reserva Obras</div>
-        <div class="mlabel" style="font-size:10px;margin-bottom:4px">(Total Inversiones)</div>
-        <div class="mval" style="font-size:16px">${fmt(reservaObras)}</div>
-      </div>
-      <div class="metric" style="border:1px solid var(--border2)">
-        <div class="mlabel">Total Reservas Sugeridas</div>
-        <div class="mlabel" style="font-size:10px;margin-bottom:4px"> </div>
-        <div class="mval pos" style="font-size:16px">${fmt(totalReservas)}</div>
-      </div>
-    </div>
-  `;
+  const lineClose = () => `</div>`;
 
+  const lineSection = label => `
+    <div style="background:var(--surface2);font-size:10px;color:var(--text3);letter-spacing:.06em;padding:5px 16px;text-transform:uppercase">${label}</div>`;
+
+  let html = '';
+
+  // ── INICIO ──
+  html += lineSimple('Posición Financiera al Inicio', inicio);
+
+  // ── INGRESOS ──
+  html += lineSection('Ingresos');
+
+  // IDs de ingresos que van en "Unidades de Negocio" — excluir de los rubros para no duplicar
+  const uniIngIds = new Set(unidadesER.flatMap(u => u.ingIds));
+
+  recGroups.forEach((g, gi) => {
+    const groupVal = g.items.reduce((s, r) => {
+      if (uniIngIds.has(r.id)) return s; // ya va en Ingresos Unidades
+      if (r.auto === 'mens') return s + calcCuotas().mensBruto;
+      if (r.auto === 'matr') return s + getMatriculas();
+      if (r.auto === 'beca') return s - calcCuotas().becaTotal;
+      if (r.total)           return s + num(r.id+'-m');
+      return s + num(r.id+'-m') * num(r.id+'-ms');
+    }, 0) + (recExtras[gi]||[]).reduce((s,r) => s + num(r.id+'-m') * num(r.id+'-ms'), 0);
+
+    if (groupVal === 0) return;
+
+    html += lineGroup('rec'+gi, `+ ${g.titulo}`, groupVal);
+    g.items.forEach(r => {
+      if (uniIngIds.has(r.id)) return; // omitir — ya aparece en Unidades
+      let v = 0;
+      if (r.auto === 'mens') v = calcCuotas().mensBruto;
+      else if (r.auto === 'matr') v = getMatriculas();
+      else if (r.auto === 'beca') v = -calcCuotas().becaTotal;
+      else if (r.total) v = num(r.id+'-m');
+      else v = num(r.id+'-m') * num(r.id+'-ms');
+      html += lineDetail(r.cod, r.label, v, v < 0);
+    });
+    (recExtras[gi]||[]).forEach(r => {
+      html += lineDetail(r.cod||'—', r.label, num(r.id+'-m') * num(r.id+'-ms'));
+    });
+    html += lineClose();
+  });
+
+  html += lineGroup('uni-ing', '+ Ingresos Unidades de Negocio', uni.ing);
+  unidadesER.forEach(u => {
+    html += lineDetail('', u.label, u.ingIds.reduce((s,id)=>s+getRecVal(id),0));
+  });
+  html += lineClose();
+
+  html += lineSimple('= Total Recursos', recOp + uni.ing, 'subtot');
+
+  // ── EGRESOS ──
+  html += lineSection('Egresos');
+
+  // Calcular el total que va a mostrar cada grupo — debe sumar exactamente getTotalEgresos()
+  // Para 511: solo subcuenta Colegio (est/can/uni van en Costos Unidades)
+  // Para otros: valor normal del input
+  let sumaRubros = 0;
+
+  // IDs de cuentas 514 que son gastos propios de unidades — van en línea separada
+  const uniGasIds = new Set(unidadesER.flatMap(u => u.gasIds));
+
+  egrGroups.forEach((g, gi) => {
+    const gItemsVal = g.items.reduce((s, e) => {
+      if (e.subs) return s + num(`${e.id}-col`); // SOLO colegio
+      if (uniGasIds.has(e.id)) return s; // gastos de unidades van aparte
+      return s + num(e.id);
+    }, 0);
+    const gExtrasVal = (egrExtras[gi]||[]).reduce((s,e) => s + num(e.id), 0);
+    const groupVal = gItemsVal + gExtrasVal;
+    if (groupVal === 0) return;
+
+    sumaRubros += groupVal;
+    html += lineGroup('egr'+gi, `− ${g.titulo}`, groupVal, true);
+    g.items.forEach(e => {
+      if (uniGasIds.has(e.id)) return; // omitir — va en Gastos Unidades
+      if (e.subs) {
+        const vCol = num(`${e.id}-col`);
+        if (vCol > 0) html += lineDetail(e.cod, `${e.label} — Colegio`, vCol, true);
+      } else {
+        const v = num(e.id);
+        if (v > 0) html += lineDetail(e.cod, e.label, v, true);
+      }
+    });
+    (egrExtras[gi]||[]).forEach(e => {
+      const v = num(e.id);
+      if (v > 0) html += lineDetail(e.cod||'—', e.label, v, true);
+    });
+    html += lineClose();
+  });
+
+  // ── Gastos Unidades de Negocio (514) — igual que ingresos de unidades ──
+  const egrUni514Res = unidadesER.reduce((s,u) =>
+    s + u.gasIds.reduce((ss,id) => ss + getEgrVal(id), 0), 0);
+  const suelUniRes = unidadesER.reduce((s,u) => s + get511UnitTotal(u.id), 0);
+  const totalGastosUni = egrUni514Res + suelUniRes;
+
+  html += lineGroup('uni-gas', '− Gastos Unidades de Negocio', totalGastosUni, true);
+  unidadesER.forEach(u => {
+    const gasOp  = u.gasIds.reduce((s,id) => s + getEgrVal(id), 0);
+    const gasSue = get511UnitTotal(u.id);
+    const total  = gasOp + gasSue;
+    if (total > 0) {
+      html += lineDetail('514+511', u.label, total, true);
+    }
+  });
+  html += lineClose();
+
+  // Total Egresos = rubros operativos (sin 514 uni) + gastos unidades completos (514 + sueldos)
+  const totalEgrDisplay = sumaRubros + totalGastosUni;
+  html += lineSimple('= Total Egresos', -totalEgrDisplay, 'subtot');
+
+  // ── RESULTADO ──
+  const superavitDisplay = (recOp + uni.ing) - totalEgrDisplay;
+  const finalDisplay     = inicio + superavitDisplay - inv;
+  html += lineSection('Resultado');
+  html += lineSimple('Superávit / Déficit del Ejercicio', superavitDisplay, 'subtot');
+  html += lineSimple('− Inversiones / Variación Capital de Trabajo', -inv);
+  html += lineSimple('Posición Financiera Final', finalDisplay, 'total');
+
+  $('resumen-lines').innerHTML = html;
+
+  // ── Métricas ──
   $('met-resumen').innerHTML = `
     <div class="metric"><div class="mlabel">Total Recursos</div><div class="mval pos">${fmt(recOp+uni.ing)}</div></div>
-    <div class="metric"><div class="mlabel">Total Egresos</div><div class="mval neg">${fmt(egr+uni.gas)}</div></div>
-    <div class="metric"><div class="mlabel">Resultado Ejercicio</div><div class="mval ${superavit>=0?'pos':'neg'}">${fmt(superavit)}</div></div>
+    <div class="metric"><div class="mlabel">Total Egresos</div><div class="mval neg">${fmt(totalEgrDisplay)}</div></div>
+    <div class="metric"><div class="mlabel">Resultado Ejercicio</div><div class="mval ${superavitDisplay>=0?'pos':'neg'}">${fmt(superavitDisplay)}</div></div>
     <div class="metric"><div class="mlabel">Inversiones</div><div class="mval neg">${fmt(inv)}</div></div>
-    <div class="metric"><div class="mlabel">Posición Final</div><div class="mval ${final>=0?'pos':'neg'}">${fmt(final)}</div></div>
+    <div class="metric"><div class="mlabel">Posición Final</div><div class="mval ${finalDisplay>=0?'pos':'neg'}">${fmt(finalDisplay)}</div></div>
   `;
+
+  // ── Reservas ──
+  const capitalTrabajo = Math.round(getTotalEgresos() / 12);
+  const reservaIndem   = num('e-indem');
+  const reservaMant    = num('e-rep-ed');
+  const reservaObras   = getTotalInv();
+  $('reservas-grid').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
+      <div class="metric"><div class="mlabel">Capital de Trabajo</div><div class="mlabel" style="font-size:10px;margin-bottom:4px">(1 mes de gastos totales)</div><div class="mval" style="font-size:16px">${fmt(capitalTrabajo)}</div></div>
+      <div class="metric"><div class="mlabel">Reserva Indemnizaciones</div><div class="mlabel" style="font-size:10px;margin-bottom:4px">(511005 · valor anual)</div><div class="mval" style="font-size:16px">${fmt(reservaIndem)}</div></div>
+      <div class="metric"><div class="mlabel">Reserva Mantenimiento</div><div class="mlabel" style="font-size:10px;margin-bottom:4px">(512005 · Edif. y Conserv.)</div><div class="mval" style="font-size:16px">${fmt(reservaMant)}</div></div>
+      <div class="metric"><div class="mlabel">Reserva Obras</div><div class="mlabel" style="font-size:10px;margin-bottom:4px">(Total Inversiones)</div><div class="mval" style="font-size:16px">${fmt(reservaObras)}</div></div>
+      <div class="metric" style="border:1px solid var(--border2)"><div class="mlabel">Total Reservas Sugeridas</div><div class="mlabel" style="font-size:10px;margin-bottom:4px"> </div><div class="mval pos" style="font-size:16px">${fmt(capitalTrabajo+reservaIndem+reservaMant+reservaObras)}</div></div>
+    </div>`;
+}
+
+function toggleResGrp(gid) {
+  const rows = document.getElementById('rg-rows-' + gid);
+  const icon = document.getElementById('rg-icon-' + gid);
+  if (!rows) return;
+  const open = rows.style.display !== 'none';
+  rows.style.display = open ? 'none' : 'block';
+  if (icon) icon.style.transform = open ? '' : 'rotate(90deg)';
 }
 
 // ─── PUNTO DE EQUILIBRIO ───
@@ -2357,121 +2463,171 @@ function calcPE() {
   const totalAlumnos = niveles.reduce((s,_,i) => s + num('nv-al-'+i), 0);
   if (totalAlumnos === 0) return;
 
-  // Cuota promedio ponderada (mensual, base + complejo × multiplicador marzo)
-  const mults = getMults();
-  let ingresoMensPorAlumno = 0;
-  niveles.forEach((_,i) => {
-    const al = num('nv-al-'+i), cu = num('nv-cu-'+i), cc = num('nv-cc-'+i)||0;
-    ingresoMensPorAlumno += (cu * mults[0] + cc) * al;
+  // ── Calcular directamente desde las fuentes de datos, no desde DOM ──
+  // Esto garantiza valores correctos independientemente del orden de ejecución
+
+  // Egresos: recalcular sumando directamente cada cuenta
+  const egrColegio = (() => {
+    let total = 0;
+    const suelUni511 = egrGroups[0].items.filter(e=>e.subs)
+      .reduce((s,e) => s + num(`${e.id}-est`) + num(`${e.id}-can`) + num(`${e.id}-uni`), 0);
+    egrGroups.forEach((g,gi) => {
+      g.items.forEach(e => {
+        if (e.subs) total += unidades511.reduce((s,u) => s + num(`${e.id}-${u.key}`), 0);
+        else total += num(e.id);
+      });
+      (egrExtras[gi]||[]).forEach(e => total += num(e.id));
+    });
+    return total - suelUni511; // sin sueldos de unidades
+  })();
+
+  // Sueldos propios de unidades
+  const suelUniTotal = unidadesER.reduce((s,u) => s + get511UnitTotal(u.id), 0);
+
+  // Ingresos de unidades (414004/05/06/14)
+  const uniIngIds = new Set(unidadesER.flatMap(u => u.ingIds));
+  const ingUni = unidadesER.reduce((s,u) =>
+    s + u.ingIds.reduce((ss,id) => ss + getRecVal(id), 0), 0);
+
+  // Egresos de unidades (514) — costos operativos
+  const egrUni514 = unidadesER.reduce((s,u) =>
+    s + u.gasIds.reduce((ss,id) => ss + getEgrVal(id), 0), 0);
+
+  // Ingresos totales del Colegio (sin unidades)
+  const cuotaRes  = calcCuotas();
+  let ingColegio  = 0;
+  recGroups.forEach((g,gi) => {
+    g.items.forEach(r => {
+      if (uniIngIds.has(r.id)) return;
+      if (r.auto === 'mens')  ingColegio += cuotaRes.mensNeto; // neto de becas
+      else if (r.auto === 'matr') ingColegio += cuotaRes.matriculas;
+      else if (r.auto === 'beca') return; // ya descontado en mensNeto
+      else if (r.total) ingColegio += num(r.id+'-m');
+      else ingColegio += num(r.id+'-m') * num(r.id+'-ms');
+    });
+    (recExtras[gi]||[]).forEach(r => ingColegio += num(r.id+'-m') * num(r.id+'-ms'));
   });
-  const cuotaProm = ingresoMensPorAlumno / totalAlumnos; // ingreso mensual promedio por alumno
 
-  // Ingresos variables = mensualidades + matrículas (proporcionales a alumnos)
-  const cuotaRes = calcCuotas();
-  const ingVar = cuotaRes.mensBruto + cuotaRes.matriculas; // proporcional a alumnos
+  // ── Sin Unidades ──
+  // Egresos SOLO del Colegio = egrColegio − gastos 514 de unidades (ya en egrColegio)
+  // Los gastos operativos 514 (Uniformes/Est/Cantina/Lib) son costos DE las unidades
+  const egrTotalSin  = egrColegio - egrUni514;
+  const ingTotalSin  = ingColegio;
+  const resultadoSin = ingTotalSin - egrTotalSin;
 
-  // Ingresos fijos (no dependen de alumnos): aportes estatales, otros aranceles, financieros
-  const ingFijoRec = calcRecursos() - ingVar + cuotaRes.becaTotal; // total rec - variables + becas (negativas)
+  // ── Con Unidades ──
+  // Ingresos: colegio + ingresos 414 de unidades
+  // Egresos: egrColegio (incluye 514) + sueldos propios de unidades (511-est/can/uni)
+  const ingTotalCon  = ingColegio + ingUni;
+  const egrTotalCon  = egrColegio + suelUniTotal;
+  const resultadoCon = ingTotalCon - egrTotalCon;
 
-  // Costos fijos = total egresos operativos (Colegio)
-  const costosFijos = getTotalEgresos();
+  // ── Margen neto % ──
+  const margenSin = ingTotalSin > 0 ? resultadoSin / ingTotalSin : 0;
+  const margenCon = ingTotalCon > 0 ? resultadoCon / ingTotalCon : 0;
 
-  // ── Sin Unidades de Negocio ──
-  // PE = Costos Fijos / (Cuota prom mensual × 10 meses + matrícula promedio) 
-  const matrProm = cuotaRes.matriculas / totalAlumnos;
-  const ingAnualPorAlumno = cuotaProm * 10 + matrProm; // 10 mensualidades + matrícula
-  const peSinUni = ingAnualPorAlumno > 0 ? Math.ceil(costosFijos / ingAnualPorAlumno) : 0;
-  const coberturaSin = totalAlumnos > 0 ? ((totalAlumnos / peSinUni) * 100).toFixed(1) : 0;
+  // ── Ingreso real promedio por alumno ──
+  const ingPorAlumnoSin = ingTotalSin / totalAlumnos;
+  const ingPorAlumnoCon = ingTotalCon / totalAlumnos;
 
-  // ── Con Unidades de Negocio ──
-  const uni = getUnidadTotals();
-  const resultadoNetoUni = uni.ing - uni.gas; // contribución neta de unidades
-  const costosFijosConUni = costosFijos - resultadoNetoUni; // costos reducidos por contribución
-  const peConUni = ingAnualPorAlumno > 0 ? Math.ceil(costosFijosConUni / ingAnualPorAlumno) : 0;
-  const coberturaConUni = totalAlumnos > 0 ? ((totalAlumnos / peConUni) * 100).toFixed(1) : 0;
+  // ── PE = Egresos / Ingreso por alumno (todos los costos son fijos) ──
+  const peSinUni = ingPorAlumnoSin > 0 ? Math.ceil(egrTotalSin / ingPorAlumnoSin) : 0;
+  const peConUni = ingPorAlumnoCon > 0 ? Math.ceil(egrTotalCon / ingPorAlumnoCon) : 0;
+
+  const fmtAl  = n => n.toLocaleString('es-AR') + ' alumnos';
+  const fmtPct = p => (p * 100).toFixed(1) + '%';
+  const fmtRes = v => v >= 0
+    ? `<span style="color:var(--accent)">✓ Superávit ${fmt(v)}</span>`
+    : `<span style="color:var(--danger)">✗ Déficit ${fmt(-v)}</span>`;
+  const colPct = p => p >= 0 ? 'var(--accent)' : 'var(--danger)';
+  const row = (lbl, val) =>
+    `<span style="color:var(--text3);font-size:11px">${lbl}</span><strong>${val}</strong>`;
 
   // ── Métricas ──
   $('met-pe').innerHTML = `
-    <div class="metric"><div class="mlabel">Alumnos Actuales</div><div class="mval">${totalAlumnos}</div></div>
-    <div class="metric"><div class="mlabel">PE Sin Unidades</div><div class="mval ${peSinUni <= totalAlumnos ? 'pos' : 'neg'}">${peSinUni.toLocaleString('es-AR')} al.</div></div>
-    <div class="metric"><div class="mlabel">PE Con Unidades</div><div class="mval ${peConUni <= totalAlumnos ? 'pos' : 'neg'}">${peConUni.toLocaleString('es-AR')} al.</div></div>
-    <div class="metric"><div class="mlabel">Margen Sin Uni</div><div class="mval ${totalAlumnos>=peSinUni?'pos':'neg'}">${(totalAlumnos-peSinUni)>0?'+':''}${(totalAlumnos-peSinUni).toLocaleString('es-AR')} al.</div></div>
-    <div class="metric"><div class="mlabel">Margen Con Uni</div><div class="mval ${totalAlumnos>=peConUni?'pos':'neg'}">${(totalAlumnos-peConUni)>0?'+':''}${(totalAlumnos-peConUni).toLocaleString('es-AR')} al.</div></div>
+    <div class="metric"><div class="mlabel">Alumnos Actuales</div>
+      <div class="mval">${totalAlumnos.toLocaleString('es-AR')}</div></div>
+    <div class="metric"><div class="mlabel">PE Sin Unidades</div>
+      <div class="mval ${peSinUni<=totalAlumnos?'pos':'neg'}">${fmtAl(peSinUni)}</div></div>
+    <div class="metric"><div class="mlabel">PE Con Unidades</div>
+      <div class="mval ${peConUni<=totalAlumnos?'pos':'neg'}">${fmtAl(peConUni)}</div></div>
+    <div class="metric"><div class="mlabel">Margen Neto Sin Uni</div>
+      <div class="mval" style="color:${colPct(margenSin)}">${fmtPct(margenSin)}</div></div>
+    <div class="metric"><div class="mlabel">Margen Neto Con Uni</div>
+      <div class="mval" style="color:${colPct(margenCon)}">${fmtPct(margenCon)}</div></div>
   `;
 
-  const fmtAl = n => n.toLocaleString('es-AR') + ' alumnos';
+  const gs = 'display:grid;grid-template-columns:auto 1fr;gap:7px 16px;align-items:baseline';
 
-  $('pe-sin-uni').innerHTML = `
-    <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center">
-      <span style="color:var(--text3);font-size:11px">Costos fijos anuales</span><strong>${fmt(costosFijos)}</strong>
-      <span style="color:var(--text3);font-size:11px">Ingreso anual por alumno</span><strong>${fmt(Math.round(ingAnualPorAlumno))}</strong>
-      <span style="color:var(--text3);font-size:11px">Cuota promedio mensual</span><strong>${fmt(Math.round(cuotaProm))}</strong>
-      <span style="color:var(--text3);font-size:11px">Matrícula promedio</span><strong>${fmt(Math.round(matrProm))}</strong>
-      <span style="color:var(--text3);font-size:11px">─────</span><span></span>
-      <span style="color:var(--text3);font-size:11px">Punto de Equilibrio</span>
-      <strong style="font-size:18px;color:${peSinUni<=totalAlumnos?'var(--accent)':'var(--danger)'}">${fmtAl(peSinUni)}</strong>
-      <span style="color:var(--text3);font-size:11px">Cobertura actual</span>
-      <strong style="color:${coberturaSin>=100?'var(--accent)':'var(--danger)'}">${coberturaSin}%</strong>
-      <span style="color:var(--text3);font-size:11px">Superávit / Déficit</span>
-      <strong style="color:${totalAlumnos>=peSinUni?'var(--accent)':'var(--danger)'}">${totalAlumnos>=peSinUni?'✓ Superávit':'✗ Déficit'} de ${Math.abs(totalAlumnos-peSinUni).toLocaleString('es-AR')} al.</strong>
-    </div>`;
+  $('pe-sin-uni').innerHTML = `<div style="${gs}">
+    ${row('Ingresos totales', fmt(ingTotalSin))}
+    ${row('Egresos totales', `<span style="color:var(--danger)">${fmt(egrTotalSin)}</span>`)}
+    ${row('Resultado neto', fmtRes(resultadoSin))}
+    ${row('Margen neto %', `<span style="font-size:18px;color:${colPct(margenSin)}">${fmtPct(margenSin)}</span>`)}
+    ${row('Ingreso / alumno / año', fmt(Math.round(ingPorAlumnoSin)))}
+    <span style="color:var(--text3)">──────</span><span></span>
+    ${row('Punto de Equilibrio', `<span style="font-size:20px;color:${peSinUni<=totalAlumnos?'var(--accent)':'var(--danger)'}">${fmtAl(peSinUni)}</span>`)}
+    ${row('Alumnos actuales', fmtAl(totalAlumnos))}
+    ${row('Margen en alumnos', `<span style="color:${totalAlumnos>=peSinUni?'var(--accent)':'var(--danger)'}">${totalAlumnos>=peSinUni?'+':''}${(totalAlumnos-peSinUni).toLocaleString('es-AR')} al.</span>`)}
+  </div>`;
 
-  $('pe-con-uni').innerHTML = `
-    <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center">
-      <span style="color:var(--text3);font-size:11px">Costos fijos anuales</span><strong>${fmt(costosFijos)}</strong>
-      <span style="color:var(--text3);font-size:11px">Contribución neta unidades</span><strong style="color:var(--accent)">${fmt(Math.round(resultadoNetoUni))}</strong>
-      <span style="color:var(--text3);font-size:11px">Costos a cubrir con cuotas</span><strong>${fmt(Math.round(costosFijosConUni))}</strong>
-      <span style="color:var(--text3);font-size:11px">Ingreso anual por alumno</span><strong>${fmt(Math.round(ingAnualPorAlumno))}</strong>
-      <span style="color:var(--text3);font-size:11px">─────</span><span></span>
-      <span style="color:var(--text3);font-size:11px">Punto de Equilibrio</span>
-      <strong style="font-size:18px;color:${peConUni<=totalAlumnos?'var(--accent)':'var(--danger)'}">${fmtAl(peConUni)}</strong>
-      <span style="color:var(--text3);font-size:11px">Cobertura actual</span>
-      <strong style="color:${coberturaConUni>=100?'var(--accent)':'var(--danger)'}">${coberturaConUni}%</strong>
-      <span style="color:var(--text3);font-size:11px">Superávit / Déficit</span>
-      <strong style="color:${totalAlumnos>=peConUni?'var(--accent)':'var(--danger)'}">${totalAlumnos>=peConUni?'✓ Superávit':'✗ Déficit'} de ${Math.abs(totalAlumnos-peConUni).toLocaleString('es-AR')} al.</strong>
-    </div>`;
+  $('pe-con-uni').innerHTML = `<div style="${gs}">
+    ${row('Ingresos totales', fmt(ingTotalCon))}
+    ${row('Egresos totales', `<span style="color:var(--danger)">${fmt(egrTotalCon)}</span>`)}
+    ${row('Resultado neto', fmtRes(resultadoCon))}
+    ${row('Margen neto %', `<span style="font-size:18px;color:${colPct(margenCon)}">${fmtPct(margenCon)}</span>`)}
+    ${row('Ingreso / alumno / año', fmt(Math.round(ingPorAlumnoCon)))}
+    <span style="color:var(--text3)">──────</span><span></span>
+    ${row('Punto de Equilibrio', `<span style="font-size:20px;color:${peConUni<=totalAlumnos?'var(--accent)':'var(--danger)'}">${fmtAl(peConUni)}</span>`)}
+    ${row('Alumnos actuales', fmtAl(totalAlumnos))}
+    ${row('Margen en alumnos', `<span style="color:${totalAlumnos>=peConUni?'var(--accent)':'var(--danger)'}">${totalAlumnos>=peConUni?'+':''}${(totalAlumnos-peConUni).toLocaleString('es-AR')} al.</span>`)}
+  </div>`;
 
   // ── Gráfico ──
-  const maxAl = Math.max(totalAlumnos * 1.3, peSinUni * 1.2, peConUni * 1.2);
-  const steps = 8;
-  const labels = Array.from({length: steps+1}, (_,i) => Math.round(maxAl * i / steps));
-  const ingLine = labels.map(al => Math.round(al * ingAnualPorAlumno));
-  const costoSinLine = labels.map(() => costosFijos);
-  const costoConLine = labels.map(() => costosFijosConUni);
+  const maxAl = Math.max(totalAlumnos * 1.5, peSinUni * 1.3, peConUni * 1.3, 500);
+  const steps = 12;
+  const lbls  = Array.from({length: steps+1}, (_,i) => Math.round(maxAl * i / steps));
+  const resSin = lbls.map(al => Math.round(al * ingPorAlumnoSin - egrTotalSin));
+  const resCon = lbls.map(al => Math.round(al * ingPorAlumnoCon - egrTotalCon));
 
   const canvas = $('pe-chart');
   if (_peChart) { _peChart.destroy(); _peChart = null; }
   _peChart = new Chart(canvas, {
     type: 'line',
     data: {
-      labels: labels.map(l => l.toLocaleString('es-AR') + ' al.'),
+      labels: lbls.map(l => l.toLocaleString('es-AR')),
       datasets: [
-        { label: 'Ingresos por Cuotas', data: ingLine, borderColor: '#4A9E6A', backgroundColor: 'rgba(74,158,106,0.08)', tension: 0.1, pointRadius: 3 },
-        { label: 'Costos Sin Unidades', data: costoSinLine, borderColor: '#C45B4A', backgroundColor: 'transparent', borderDash: [6,3], tension: 0, pointRadius: 0 },
-        { label: 'Costos Con Unidades', data: costoConLine, borderColor: '#6A9EC4', backgroundColor: 'transparent', borderDash: [4,4], tension: 0, pointRadius: 0 },
+        { label: 'Resultado Sin Unidades', data: resSin, borderColor: '#C45B4A', backgroundColor: 'rgba(196,91,74,0.07)', tension: 0.1, pointRadius: 2, fill: true },
+        { label: 'Resultado Con Unidades', data: resCon, borderColor: '#4A9E6A', backgroundColor: 'rgba(74,158,106,0.07)', tension: 0.1, pointRadius: 2, fill: true },
+        { label: 'Resultado = 0 (PE)', data: lbls.map(()=>0), borderColor:'#555', borderDash:[5,4], borderWidth:1.5, pointRadius:0, fill:false }
       ]
     },
     options: {
       responsive: true,
       plugins: {
-        legend: { position: 'top', labels: { font: { family: 'DM Mono', size: 11 } } },
-        tooltip: { callbacks: { label: ctx => ' $ ' + ctx.raw.toLocaleString('es-AR') } }
+        legend: { position:'top', labels:{ font:{family:'DM Mono',size:11} } },
+        tooltip: { callbacks: {
+          title: ctx => `${ctx[0].label} alumnos`,
+          label: ctx => ` ${ctx.dataset.label}: $ ${ctx.raw.toLocaleString('es-AR')}`
+        }}
       },
       scales: {
-        y: { ticks: { callback: v => '$ ' + (v/1000000).toFixed(0) + 'M', font: { family: 'DM Mono', size: 10 } } },
-        x: { ticks: { font: { family: 'DM Mono', size: 10 } } }
+        y: { ticks: { callback: v => '$'+(v/1000000).toFixed(0)+'M', font:{family:'DM Mono',size:10} },
+             grid: { color: ctx => ctx.tick.value===0?'#555':'#eee', lineWidth: ctx=>ctx.tick.value===0?2:1 } },
+        x: { title:{display:true,text:'Cantidad de alumnos',font:{family:'DM Mono',size:10}},
+             ticks:{font:{family:'DM Mono',size:10}} }
       }
     }
   });
 
   $('pe-supuestos').innerHTML = `
-    <div style="padding:12px 16px">
-      · Ingresos variables = Mensualidades (bruto) + Matrículas → proporcionales a cantidad de alumnos<br>
-      · Costos fijos = Total Egresos Operativos del presupuesto (sin doble contabilización de sueldos por unidad)<br>
-      · Cuota promedio ponderada por nivel y cantidad de alumnos, aplicando incremento de marzo<br>
-      · Período considerado: 10 mensualidades + 1 matrícula por alumno<br>
-      · Sin Unidades: los costos de Estacionamiento, Cantina y Uniformes/Librería se incluyen en los fijos<br>
-      · Con Unidades: el resultado neto de las unidades reduce los costos a cubrir con cuotas
+    <div style="padding:12px 16px;line-height:2">
+      · <strong>Todos los costos son fijos</strong> — PE = Egresos Totales ÷ Ingreso promedio por alumno<br>
+      · <strong>Ingreso por alumno</strong> = Ingresos Totales Presupuestados ÷ Alumnos actuales<br>
+      · <strong>Margen Neto %</strong> = Resultado Neto ÷ Ingresos Totales<br>
+      · <strong>Sin Unidades</strong>: solo ingresos y egresos del Colegio (netos de becas)<br>
+      · <strong>Con Unidades</strong>: todos los ingresos y todos los egresos del presupuesto<br>
+      · Se recalcula automáticamente con cada cambio en el presupuesto
     </div>`;
 }
 
