@@ -35,57 +35,55 @@
   // Si Firebase tiene una versión MENOR, no restaura automáticamente
   const HTML_VERSION = 3;
 
-  window._fbInit = async () => {
-    try {
-      setSyncStatus('connecting');
-      const snap = await getDoc(DOC);
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data && data.v) {
-          const fbVersion = data._htmlVersion || 1;
-          if (fbVersion < HTML_VERSION) {
-            // Firebase tiene datos de una versión anterior del HTML
-            // Mostrar aviso y NO restaurar automáticamente
-            setSyncStatus('live');
-            window._appReady = true;
-            // Avisar al usuario que hay datos guardados de versión anterior
-            setTimeout(() => {
-              mostrarAvisoVersionAnterior(data);
-            }, 500);
-          } else {
-            // Misma versión o más nueva — restaurar normalmente
-            _applying = true;
-            aplicarEstado(data);
-            await new Promise(r => setTimeout(r, 1000));
-            _applying = false;
-            setSyncStatus('live');
-            window._appReady = true;
-          }
-        } else {
-          setSyncStatus('live');
-          window._appReady = true;
-        }
+  // ── LISTENER EN TIEMPO REAL — se registra INMEDIATAMENTE ──
+  // No esperar a _fbInit para que ningún cambio remoto se pierda
+  let _initDone = false;
+  onSnapshot(DOC, { includeMetadataChanges: false }, snap => {
+    if (!snap.exists()) return;
+    const data = snap.data();
+    if (!data || !data.v) return;
+
+    if (!_initDone) {
+      // Primera llegada = carga inicial
+      _initDone = true;
+      const fbVersion = data._htmlVersion || 1;
+      if (fbVersion < HTML_VERSION) {
+        // Versión anterior — mostrar banner, no restaurar
+        setTimeout(() => {
+          if (typeof mostrarAvisoVersionAnterior === 'function')
+            mostrarAvisoVersionAnterior(data);
+        }, 800);
       } else {
-        setSyncStatus('live');
-        window._appReady = true;
+        // Misma versión — restaurar estado
+        setTimeout(() => {
+          if (typeof _applying !== 'undefined') {
+            _applying = true;
+            if (typeof aplicarEstado === 'function') aplicarEstado(data);
+            setTimeout(() => {
+              _applying = false;
+              if (typeof setSyncStatus === 'function') setSyncStatus('live');
+            }, 1000);
+          }
+        }, 300);
       }
-    } catch(e) {
-      console.error('Firebase init error:', e);
-      setSyncStatus('error');
-      window._appReady = true;
+      setTimeout(() => {
+        window._appReady = true;
+        if (typeof setSyncStatus === 'function') setSyncStatus('live');
+      }, 400);
+      return;
     }
 
-    // Arrancar listener en tiempo real
-    onSnapshot(DOC, { includeMetadataChanges: false }, snap => {
-      if (!snap.exists() || !window._appReady) return;
-      const data = snap.data();
-      if (!data || !data.v) return;
-      window._fbApply && window._fbApply(data);
-    }, err => {
-      console.error('Firebase listener error:', err);
-      setSyncStatus('error');
-    });
-  };
+    // Cambio en tiempo real de otro usuario
+    if (!window._appReady) return;
+    window._fbApply && window._fbApply(data);
+
+  }, err => {
+    console.error('Firebase listener error:', err);
+    if (typeof setSyncStatus === 'function') setSyncStatus('error');
+  });
+
+  // _fbInit ya no hace falta — el onSnapshot maneja todo
+  window._fbInit = async () => { /* handled by onSnapshot above */ };
 
   window._getHtmlVersion = () => HTML_VERSION;
 </script>
