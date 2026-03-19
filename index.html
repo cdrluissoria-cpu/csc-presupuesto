@@ -8,7 +8,7 @@
 <!-- Firebase -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, onSnapshot, serverTimestamp }
+  import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -24,64 +24,28 @@
   const db  = getFirestore(app);
   const DOC = doc(db, 'presupuesto', '2026');
 
-  const SESSION_ID = Math.random().toString(36).slice(2) + Date.now();
-  window._fbSessionId = SESSION_ID;
-
-  // ── GUARDAR en Firebase ──
+  // ── GUARDAR ──
   window._fbSave = async (estado) => {
     try {
       setSyncStatus('saving');
-      await setDoc(DOC, { ...estado, _sid: SESSION_ID, _ts: serverTimestamp() }, { merge: false });
+      await setDoc(DOC, estado);
       setSyncStatus('ok');
     } catch(e) {
-      console.error('Firebase save error:', e);
       setSyncStatus('error');
     }
   };
 
-  // ── CARGAR desde Firebase (solo lectura puntual, sin listener) ──
-  window._fbLoad = async () => {
-    try {
-      setSyncStatus('saving');
-      const snap = await getDoc(DOC);
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data && data.v) {
-          window._pendingRemoteState = data;
-          setSyncStatus('ok');
-          return data;
-        }
-      }
-      setSyncStatus('ok');
-      return null;
-    } catch(e) {
-      console.error('Firebase load error:', e);
-      setSyncStatus('error');
-      return null;
-    }
-  };
-
-  // ── LISTENER solo para notificar que hay cambios — NO restaura automáticamente ──
-  let _lastKnownSid = SESSION_ID;
-  onSnapshot(DOC, snap => {
+  // ── ESCUCHAR EN TIEMPO REAL ──
+  // Igual que la Agenda: onSnapshot simple, aplica siempre que no sea nuestro propio write
+  onSnapshot(DOC, { includeMetadataChanges: false }, snap => {
+    // includeMetadataChanges:false → solo eventos confirmados por el servidor, nunca el echo local
     if (!snap.exists() || !window._appReady) return;
     const data = snap.data();
     if (!data || !data.v) return;
-
-    // Ignorar cambios propios (incluyendo hasPendingWrites)
-    if (snap.metadata.hasPendingWrites) return;
-    if (data._sid === SESSION_ID) return;
-
-    // Es un cambio de otro usuario — solo mostrar aviso, NUNCA restaurar automáticamente
-    if (data._sid !== _lastKnownSid) {
-      _lastKnownSid = data._sid;
-      window._pendingRemoteState = data;
-      mostrarAvisoCambios();
-    }
-  }, err => {
-    console.error('Firebase listen error:', err);
-    setSyncStatus('error');
-  });
+    // Aplicar directamente — el flag _applying en el main script evita el loop
+    window._fbApply && window._fbApply(data);
+    setSyncStatus('ok');
+  }, err => setSyncStatus('error'));
 </script>
 <style>
 :root {
@@ -2492,7 +2456,7 @@ function updateAll() {
   calcResumen();
   calcPE();
   $('last-saved').textContent = 'actualizado ' + new Date().toLocaleTimeString('es-AR');
-  if (window._appReady) fbAutoSave();
+  if (window._appReady && !_applying) fbAutoSave();
 }
 
 function imprimirApp() {
@@ -2626,47 +2590,22 @@ function exportarCSV() {
 }
 
 // ─── FIREBASE SYNC ───
+// Mismo patrón que la Agenda Estratégica:
+// - _applying: true mientras aplicamos datos de Firebase → fbSave no guarda
+// - fbSave: guarda con debounce cuando el usuario edita
+// - _fbApply: recibe datos del onSnapshot y los aplica si no somos nosotros los que guardamos
+
 let _fbDebounce = null;
-window._getFbDebounce = () => _fbDebounce;
+let _applying = false;
 window._cancelFbDebounce = () => { clearTimeout(_fbDebounce); _fbDebounce = null; };
-let _restoringFromRemote = false; // flag: estamos aplicando estado remoto, no guardar
-window._pendingRemoteState = null;
 
-function mostrarAvisoCambios() {
-  const el = document.getElementById('sync-status');
-  if (!el) return;
-  el.innerHTML = '🔄 <span style="cursor:pointer;text-decoration:underline" onclick="aplicarCambiosRemotos()">otro usuario editó — clic para actualizar</span>';
-  el.style.color = 'var(--warn)';
-  el.style.background = 'var(--warn-lt)';
-}
-
-function aplicarCambiosRemotos() {
-  if (!window._pendingRemoteState) return;
-  const estado = window._pendingRemoteState;
-  window._pendingRemoteState = null;
-
-  // Cancelar cualquier auto-save pendiente
-  window._cancelFbDebounce && window._cancelFbDebounce();
-
-  // Bloquear fbAutoSave durante la restauración
-  _restoringFromRemote = true;
-  clearTimeout(_restoreTimer);
-
-  aplicarEstado(estado);
-
-  // Mantener bloqueado 4s para que todos los efectos de updateAll terminen
-  _restoreTimer = setTimeout(() => {
-    _restoringFromRemote = false;
-    setSyncStatus('ok');
-  }, 4000);
-}
-
-let _restoreTimer = null;
-
-// Exponer restaurador para Firebase listener — NO dispara fbAutoSave
-window._fbRestore = function(estado) {
-  window._pendingRemoteState = estado;
-  mostrarAvisoCambios();
+// Firebase llama esto cuando hay cambios en el servidor
+window._fbApply = function(data) {
+  if (_applying) return; // estamos guardando nosotros, ignorar el echo
+  _applying = true;
+  aplicarEstado(data);
+  // Dar tiempo a que updateAll termine antes de liberar el flag
+  setTimeout(() => { _applying = false; }, 1000);
 };
 
 function setSyncStatus(state) {
@@ -2674,30 +2613,28 @@ function setSyncStatus(state) {
   if (!el) return;
   if (state === 'saving') {
     el.textContent = '☁️ guardando...';
-    el.style.color = 'var(--warn)';
-    el.style.background = 'var(--warn-lt)';
+    el.style.color = 'var(--warn)'; el.style.background = 'var(--warn-lt)';
   } else if (state === 'ok') {
     el.textContent = '✓ sincronizado';
-    el.style.color = 'var(--accent)';
-    el.style.background = 'var(--accent-lt)';
+    el.style.color = 'var(--accent)'; el.style.background = 'var(--accent-lt)';
   } else if (state === 'error') {
     el.textContent = '✕ sin conexión';
-    el.style.color = 'var(--danger)';
-    el.style.background = '#fde8e8';
+    el.style.color = 'var(--danger)'; el.style.background = '#fde8e8';
   }
 }
 
 function fbAutoSave() {
-  // No programar si estamos restaurando
-  if (_restoringFromRemote) return;
+  if (_applying) return; // no guardar mientras aplicamos datos remotos
   clearTimeout(_fbDebounce);
   _fbDebounce = setTimeout(() => {
-    // Verificar de nuevo al momento de ejecutar (puede haber cambiado)
-    if (_restoringFromRemote) return;
+    if (_applying) return;
     if (!window._fbSave) return;
+    _applying = true; // marcar que vamos a guardar
     const estado = capturarEstado();
-    window._fbSave(estado);
-  }, 2500);
+    window._fbSave(estado).finally(() => {
+      setTimeout(() => { _applying = false; }, 1000);
+    });
+  }, 1500);
 }
 
 function capturarEstado() {
@@ -2853,23 +2790,9 @@ initUnidadesER();
 initResponsables();
 renderInv();
 updateAll();
+// Marcar app lista — onSnapshot empezará a recibir datos de Firebase
 window._appReady = true;
-
-// Cargar estado desde Firebase al iniciar
-setTimeout(async () => {
-  if (window._fbLoad) {
-    const data = await window._fbLoad();
-    if (data && data.v) {
-      // Solo aplicar si Firebase tiene datos más recientes que los defaults
-      _restoringFromRemote = true;
-      aplicarEstado(data);
-      _restoreTimer = setTimeout(() => {
-        _restoringFromRemote = false;
-        setSyncStatus('ok');
-      }, 4000);
-    }
-  }
-}, 1500); // esperar 1.5s para que Firebase module se inicialice
+setSyncStatus('ok');
 </script>
 </body>
 </html>
