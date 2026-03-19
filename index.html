@@ -24,14 +24,17 @@
   const db  = getFirestore(app);
   const DOC = doc(db, 'presupuesto', '2026');
 
-  // ID único de esta sesión — para ignorar los propios writes
-  const SESSION_ID = Math.random().toString(36).slice(2);
+  // ID único de esta sesión
+  const SESSION_ID = Math.random().toString(36).slice(2) + Date.now();
   window._fbSessionId = SESSION_ID;
 
-  // ── Guardar en Firebase ──
+  // Flag: estamos en medio de un save propio — ignorar el echo del listener
+  let _ownSaveTs = 0;
+
   window._fbSave = async (estado) => {
     try {
       setSyncStatus('saving');
+      _ownSaveTs = Date.now();
       await setDoc(DOC, { ...estado, _sid: SESSION_ID, _ts: serverTimestamp() }, { merge: false });
       setSyncStatus('ok');
     } catch(e) {
@@ -40,35 +43,20 @@
     }
   };
 
-  // ── Escuchar cambios en tiempo real ──
   onSnapshot(DOC, snap => {
     if (!snap.exists()) { setSyncStatus('ok'); return; }
     const data = snap.data();
     setSyncStatus('ok');
 
-    // Ignorar si la app no está lista todavía
     if (!window._appReady || !data || !data.v) return;
 
-    // IGNORAR si el write lo hizo ESTA misma sesión
+    // Ignorar si es nuestro propio write (mismo session ID)
     if (data._sid === SESSION_ID) return;
 
-    // IGNORAR si el usuario está activamente editando un campo
-    if (window._userIsEditing) {
-      // Encolar la restauración para cuando termine de editar
-      window._pendingRemoteState = data;
-      setSyncStatus('ok');
-      // Mostrar aviso de que hay cambios pendientes de otro usuario
-      const el = document.getElementById('sync-status');
-      if (el) {
-        el.textContent = '🔄 cambios de otro usuario pendientes';
-        el.style.color = 'var(--warn)';
-        el.style.background = 'var(--warn-lt)';
-      }
-      return;
-    }
+    // Hay cambios de otro usuario — mostrar botón para aplicar
+    window._pendingRemoteState = data;
+    mostrarAvisoCambios();
 
-    // Restaurar estado del otro usuario
-    window._fbRestore(data);
   }, err => {
     console.error('Firebase listen error:', err);
     setSyncStatus('error');
@@ -2618,32 +2606,32 @@ function exportarCSV() {
 
 // ─── FIREBASE SYNC ───
 let _fbDebounce = null;
-
-// Rastrear si el usuario está editando activamente
-window._userIsEditing = false;
+let _restoringFromRemote = false; // flag: estamos aplicando estado remoto, no guardar
 window._pendingRemoteState = null;
 
-document.addEventListener('focusin', e => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.contentEditable === 'true') {
-    window._userIsEditing = true;
-  }
-});
-document.addEventListener('focusout', e => {
-  // Pequeño delay para que el blur se procese antes de aplicar estado remoto
-  setTimeout(() => {
-    const active = document.activeElement;
-    const stillEditing = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.contentEditable === 'true');
-    if (!stillEditing) {
-      window._userIsEditing = false;
-      // Aplicar estado remoto pendiente si lo hay
-      if (window._pendingRemoteState) {
-        const estado = window._pendingRemoteState;
-        window._pendingRemoteState = null;
-        window._fbRestore(estado);
-      }
-    }
-  }, 300);
-});
+function mostrarAvisoCambios() {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  el.innerHTML = '🔄 <span style="cursor:pointer;text-decoration:underline" onclick="aplicarCambiosRemotos()">otro usuario editó — clic para actualizar</span>';
+  el.style.color = 'var(--warn)';
+  el.style.background = 'var(--warn-lt)';
+}
+
+function aplicarCambiosRemotos() {
+  if (!window._pendingRemoteState) return;
+  const estado = window._pendingRemoteState;
+  window._pendingRemoteState = null;
+  _restoringFromRemote = true;
+  aplicarEstado(estado);
+  _restoringFromRemote = false;
+  setSyncStatus('ok');
+}
+
+// Exponer restaurador para Firebase listener — NO dispara fbAutoSave
+window._fbRestore = function(estado) {
+  window._pendingRemoteState = estado;
+  mostrarAvisoCambios();
+};
 
 function setSyncStatus(state) {
   const el = document.getElementById('sync-status');
@@ -2664,13 +2652,14 @@ function setSyncStatus(state) {
 }
 
 function fbAutoSave() {
-  // Debounce: esperar 1.5s sin cambios antes de guardar
+  // No guardar si estamos aplicando un estado remoto (evita loop)
+  if (_restoringFromRemote) return;
   clearTimeout(_fbDebounce);
   _fbDebounce = setTimeout(() => {
     if (!window._fbSave) return;
     const estado = capturarEstado();
     window._fbSave(estado);
-  }, 1500);
+  }, 2000); // 2 segundos de debounce para estabilidad
 }
 
 function capturarEstado() {
@@ -2708,10 +2697,8 @@ function capturarEstado() {
   return estado;
 }
 
-// Exponer restaurador para Firebase listener
-window._fbRestore = function(estado) {
-  aplicarEstado(estado);
-};
+// Exponer restaurador para Firebase listener — ya definido arriba en Firebase Sync
+
 
 function aplicarEstado(estado) {
   if (estado.nombreColegio) {
