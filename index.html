@@ -31,6 +31,10 @@
 
   // ── CARGA INICIAL (F5 / primera vez) ──
   // Espera a que el main script esté listo, luego lee Firebase y arranca el listener
+  // Versión del HTML — incrementar cada vez que se sube una nueva versión
+  // Si Firebase tiene una versión MENOR, no restaura automáticamente
+  const HTML_VERSION = 3;
+
   window._fbInit = async () => {
     try {
       setSyncStatus('connecting');
@@ -38,20 +42,40 @@
       if (snap.exists()) {
         const data = snap.data();
         if (data && data.v) {
-          _applying = true;
-          aplicarEstado(data);
-          await new Promise(r => setTimeout(r, 1000));
-          _applying = false;
+          const fbVersion = data._htmlVersion || 1;
+          if (fbVersion < HTML_VERSION) {
+            // Firebase tiene datos de una versión anterior del HTML
+            // Mostrar aviso y NO restaurar automáticamente
+            setSyncStatus('live');
+            window._appReady = true;
+            // Avisar al usuario que hay datos guardados de versión anterior
+            setTimeout(() => {
+              mostrarAvisoVersionAnterior(data);
+            }, 500);
+          } else {
+            // Misma versión o más nueva — restaurar normalmente
+            _applying = true;
+            aplicarEstado(data);
+            await new Promise(r => setTimeout(r, 1000));
+            _applying = false;
+            setSyncStatus('live');
+            window._appReady = true;
+          }
+        } else {
+          setSyncStatus('live');
+          window._appReady = true;
         }
+      } else {
+        setSyncStatus('live');
+        window._appReady = true;
       }
-      setSyncStatus('live');
     } catch(e) {
       console.error('Firebase init error:', e);
       setSyncStatus('error');
+      window._appReady = true;
     }
 
-    // Arrancar listener en tiempo real DESPUÉS de la carga inicial
-    window._appReady = true;
+    // Arrancar listener en tiempo real
     onSnapshot(DOC, { includeMetadataChanges: false }, snap => {
       if (!snap.exists() || !window._appReady) return;
       const data = snap.data();
@@ -62,6 +86,8 @@
       setSyncStatus('error');
     });
   };
+
+  window._getHtmlVersion = () => HTML_VERSION;
 </script>
 <style>
 :root {
@@ -708,8 +734,7 @@ tr.acc-subtotal td {
       <span id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:#4caf50;display:inline-block;animation:pulse-green 2s infinite"></span>
       <span id="sync-text">conectando...</span>
     </span>
-    <button id="btn-tomar" class="btn" style="padding:5px 14px;font-size:11px;color:#2e7d32;border-color:#2e7d32;font-weight:500" onclick="tomarControl()" title="Tomar control de edición">✏️ tomar control</button>
-    <button id="btn-liberar" class="btn" style="padding:5px 14px;font-size:11px;color:#c62828;border-color:#c62828;font-weight:500;display:none" onclick="liberarControl()" title="Guardar y liberar edición">✓ liberar</button>
+
     <button class="btn" style="padding:5px 12px;font-size:11px;color:#4A9E6A;border-color:#4A9E6A" onclick="guardarEstado()">💾 backup</button>
     <button class="btn" style="padding:5px 12px;font-size:11px;color:#6A9EC4;border-color:#6A9EC4" onclick="$('cargar-inp').click()">📂 restaurar</button>
     <input type="file" id="cargar-inp" accept=".json" style="display:none" onchange="cargarEstado(event)">
@@ -2774,141 +2799,32 @@ function exportarCSV() {
   a.click();
 }
 
-// ─── FIREBASE SYNC — MODO TURNOS ───
-let _miNombre = '';
-let _tengoControl = false;
-let _editorActual = '';
+// ─── FIREBASE SYNC ───
 let _fbDebounce = null;
+let _applying = false;
 window._cancelFbDebounce = () => { clearTimeout(_fbDebounce); _fbDebounce = null; };
 
-// Cuando llegan datos nuevos de Firebase (después de que otro liberó)
+// Firebase llama esto cuando llegan cambios de otro usuario
 window._fbApply = function(data) {
-  if (_tengoControl) return; // yo soy el editor, ignoro
+  if (_applying) return; // somos nosotros guardando — ignorar echo
+  _applying = true;
   aplicarEstado(data);
-  setSyncStatus('libre', _editorActual);
+  setTimeout(() => { _applying = false; }, 800);
 };
 
-// Cuando cambia el estado de control
-window._fbLockUpdate = function(lockData) {
-  _editorActual = lockData.editor || '';
-  const libre = lockData.libre === true || !_editorActual;
-
-  if (libre) {
-    // Nadie editando — todos en lectura, pueden tomar control
-    _tengoControl = false;
-    setReadOnly(true);
-    setSyncStatus('libre', '');
-    $('btn-tomar').style.display = '';
-    $('btn-liberar').style.display = 'none';
-
-  } else if (_editorActual === _miNombre && _miNombre) {
-    // YO tengo el control — habilitar edición
-    _tengoControl = true;
-    setReadOnly(false);
-    setSyncStatus('editando', _miNombre);
-    $('btn-tomar').style.display = 'none';
-    $('btn-liberar').style.display = '';
-
-  } else {
-    // Otro tiene el control — modo lectura
-    _tengoControl = false;
-    setReadOnly(true);
-    setSyncStatus('bloqueado', _editorActual);
-    $('btn-tomar').style.display = 'none';
-    $('btn-liberar').style.display = 'none';
-  }
-};
-
-function setReadOnly(bloquear) {
-  // Solo bloquear inputs de datos, no botones de navegación ni del header
-  document.querySelectorAll(
-    'input:not([type="file"]):not([type="hidden"]):not(.resp-inp)'
-  ).forEach(el => {
-    // No tocar inputs de nav/header
-    if (el.closest('.nav') || el.closest('.header') || el.closest('.inc-bar')) return;
-    el.disabled = bloquear;
-    el.style.opacity = bloquear ? '0.5' : '';
-    el.style.cursor = bloquear ? 'not-allowed' : '';
-  });
-
-  // Bloquear contenteditable (notas, nombre colegio, responsables)
-  document.querySelectorAll('[contenteditable]').forEach(el => {
-    if (el.closest('.header')) return;
-    el.contentEditable = bloquear ? 'false' : 'true';
-    el.style.opacity = bloquear ? '0.6' : '';
-    el.style.cursor = bloquear ? 'not-allowed' : '';
-  });
-
-  // Bloquear spans editables de valores (los que tienen onclick de edición)
-  document.querySelectorAll('span[id$="-disp"][onclick], span[id$="-disp-tot"]').forEach(el => {
-    el.style.pointerEvents = bloquear ? 'none' : '';
-    el.style.cursor = bloquear ? 'default' : 'text';
-    el.style.opacity = bloquear ? '0.6' : '';
-  });
-
-  // Bloquear botones de agregar/eliminar dentro de las tablas
-  document.querySelectorAll('.main button').forEach(el => {
-    el.disabled = bloquear;
-    el.style.opacity = bloquear ? '0.4' : '';
-  });
-}
-
-async function tomarControl() {
-  const nombre = prompt('¿Con qué nombre vas a editar?\n(Ej: Silvia, Noelia, Gerardo...)', _miNombre || '');
-  if (!nombre || !nombre.trim()) return;
-  _miNombre = nombre.trim();
-  _tengoControl = true;
-  // Habilitar edición inmediatamente — no esperar el snapshot
-  setReadOnly(false);
-  setSyncStatus('editando', _miNombre);
-  $('btn-tomar').style.display = 'none';
-  $('btn-liberar').style.display = '';
-  // Notificar a los demás via Firebase
-  if (window._fbTakeControl) await window._fbTakeControl(_miNombre);
-}
-
-async function liberarControl() {
-  if (!_tengoControl) return;
-  _tengoControl = false;
-  // Bloquear edición inmediatamente
-  setReadOnly(true);
-  setSyncStatus('guardando', '');
-  $('btn-liberar').style.display = 'none';
-  $('btn-tomar').style.display = '';
-  // Guardar estado y liberar en Firebase
-  const estado = capturarEstado();
-  if (window._fbReleaseControl) {
-    try {
-      await window._fbReleaseControl(estado, _miNombre);
-      setSyncStatus('libre', '');
-    } catch(e) {
-      setSyncStatus('error', '');
-    }
-  }
-  _miNombre = '';
-}
-
-function setSyncStatus(state, editor) {
+function setSyncStatus(state) {
   const dot = document.getElementById('sync-dot');
   const txt = document.getElementById('sync-text');
   const box = document.getElementById('sync-status');
   if (!dot || !txt || !box) return;
-  if (state === 'libre') {
+  if (state === 'live') {
     box.style.background = '#e8f5e9'; box.style.color = '#2e7d32';
     dot.style.background = '#4caf50'; dot.style.animation = 'pulse-green 2s infinite';
-    txt.textContent = 'libre para editar';
-  } else if (state === 'editando') {
-    box.style.background = '#e3f2fd'; box.style.color = '#1565c0';
-    dot.style.background = '#42a5f5'; dot.style.animation = 'pulse-green 1.5s infinite';
-    txt.textContent = '✏️ editando: ' + editor;
-  } else if (state === 'bloqueado') {
-    box.style.background = '#fff8e1'; box.style.color = '#e65100';
-    dot.style.background = '#ffa726'; dot.style.animation = 'pulse-orange 1.5s infinite';
-    txt.textContent = '🔒 editando: ' + editor;
-  } else if (state === 'guardando') {
-    box.style.background = '#f3e5f5'; box.style.color = '#6a1b9a';
-    dot.style.background = '#ab47bc'; dot.style.animation = 'pulse-green 1s infinite';
-    txt.textContent = '☁️ guardando...';
+    txt.textContent = 'en vivo';
+  } else if (state === 'saving') {
+    box.style.background = '#fff8e1'; box.style.color = '#f57f17';
+    dot.style.background = '#ffa726'; dot.style.animation = 'pulse-orange 1s infinite';
+    txt.textContent = 'guardando...';
   } else if (state === 'connecting') {
     box.style.background = 'var(--surface2)'; box.style.color = 'var(--text3)';
     dot.style.background = '#aaa'; dot.style.animation = 'pulse-green 2s infinite';
@@ -2920,20 +2836,79 @@ function setSyncStatus(state, editor) {
   }
 }
 
-function fbAutoSave() {
-  // Sin modo turnos no hay auto-save — el guardado es manual al liberar control
+function mostrarAvisoVersionAnterior(data) {
+  // Mostrar banner prominente cuando hay datos de versión anterior en Firebase
+  const banner = document.createElement('div');
+  banner.id = 'version-banner';
+  banner.style.cssText = `
+    position:fixed;top:0;left:0;right:0;z-index:9999;
+    background:#7A5C1A;color:#fff;
+    padding:12px 20px;
+    display:flex;align-items:center;gap:12px;
+    font-family:'DM Mono',monospace;font-size:12px;
+  `;
+  banner.innerHTML = `
+    <span>⚠️ <strong>Nueva versión del sistema.</strong> Hay datos guardados de una versión anterior.</span>
+    <button onclick="cargarDatosAnteriores()" style="
+      background:#fff;color:#7A5C1A;border:none;padding:6px 14px;
+      border-radius:4px;cursor:pointer;font-family:'DM Mono',monospace;font-size:11px;font-weight:500">
+      📂 Restaurar datos anteriores
+    </button>
+    <button onclick="descartarDatosAnteriores()" style="
+      background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.5);
+      padding:6px 14px;border-radius:4px;cursor:pointer;font-family:'DM Mono',monospace;font-size:11px">
+      Arrancar desde cero
+    </button>
+  `;
+  document.body.prepend(banner);
+  window._pendingOldData = data;
 }
 
-// Aviso antes de cerrar si tenés el control
-window.addEventListener('beforeunload', e => {
-  if (_tengoControl) {
-    e.preventDefault();
-    e.returnValue = 'Tenés el control de edición activo. ¿Seguro que querés salir sin liberar?';
-  }
-});
+function cargarDatosAnteriores() {
+  if (!window._pendingOldData) return;
+  const data = window._pendingOldData;
+  window._pendingOldData = null;
+  _applying = true;
+  aplicarEstado(data);
+  setTimeout(() => {
+    _applying = false;
+    // Guardar con la nueva versión del HTML
+    fbAutoSave();
+  }, 1000);
+  const banner = document.getElementById('version-banner');
+  if (banner) banner.remove();
+}
+
+function descartarDatosAnteriores() {
+  window._pendingOldData = null;
+  // Guardar el estado actual (defaults del nuevo HTML) en Firebase
+  fbAutoSave();
+  const banner = document.getElementById('version-banner');
+  if (banner) banner.remove();
+}
+
+function fbAutoSave() {
+  if (_applying) return;
+  clearTimeout(_fbDebounce);
+  _fbDebounce = setTimeout(async () => {
+    if (_applying) return;
+    if (!window._fbSave) return;
+    _applying = true;
+    setSyncStatus('saving');
+    try {
+      const estado = capturarEstado();
+      await window._fbSave(estado);
+    } finally {
+      setTimeout(() => {
+        _applying = false;
+        setSyncStatus('live');
+      }, 800);
+    }
+  }, 1500);
+}
 
 function capturarEstado() {
-  const estado = { v: 2, ts: new Date().toISOString() };
+  const estado = { v: 2, ts: new Date().toISOString(), _htmlVersion: window._getHtmlVersion ? window._getHtmlVersion() : 1 };
   const inputs = document.querySelectorAll('input[id], [contenteditable][id]');
   estado.inputs = {};
   inputs.forEach(el => {
