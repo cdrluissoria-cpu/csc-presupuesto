@@ -35,37 +35,42 @@
   // Si Firebase tiene una versión MENOR, no restaura automáticamente
   const HTML_VERSION = 3;
 
-  // ── LISTENER EN TIEMPO REAL — se registra INMEDIATAMENTE ──
-  // No esperar a _fbInit para que ningún cambio remoto se pierda
+  // ── LISTENER EN TIEMPO REAL ──
+  // includeMetadataChanges: true para recibir TODOS los eventos
+  // Filtramos hasPendingWrites para ignorar el write local propio
   let _initDone = false;
-  onSnapshot(DOC, { includeMetadataChanges: false }, snap => {
+  let _lastSavedData = null;
+
+  onSnapshot(DOC, { includeMetadataChanges: true }, snap => {
     if (!snap.exists()) return;
+
+    // Ignorar eventos de escritura local pendiente (son nuestros propios saves)
+    if (snap.metadata.hasPendingWrites) return;
+
     const data = snap.data();
     if (!data || !data.v) return;
 
     if (!_initDone) {
-      // Primera llegada = carga inicial
+      // Primera llegada desde servidor = carga inicial
       _initDone = true;
       const fbVersion = data._htmlVersion || 1;
+
       if (fbVersion < HTML_VERSION) {
-        // Versión anterior — mostrar banner, no restaurar
         setTimeout(() => {
           if (typeof mostrarAvisoVersionAnterior === 'function')
             mostrarAvisoVersionAnterior(data);
         }, 800);
       } else {
-        // Misma versión — restaurar estado
         setTimeout(() => {
-          if (typeof _applying !== 'undefined') {
-            _applying = true;
-            if (typeof aplicarEstado === 'function') aplicarEstado(data);
-            setTimeout(() => {
-              _applying = false;
-              if (typeof setSyncStatus === 'function') setSyncStatus('live');
-            }, 1000);
-          }
+          _applying = true;
+          if (typeof aplicarEstado === 'function') aplicarEstado(data);
+          setTimeout(() => {
+            _applying = false;
+            if (typeof setSyncStatus === 'function') setSyncStatus('live');
+          }, 1000);
         }, 300);
       }
+
       setTimeout(() => {
         window._appReady = true;
         if (typeof setSyncStatus === 'function') setSyncStatus('live');
@@ -73,7 +78,7 @@
       return;
     }
 
-    // Cambio en tiempo real de otro usuario
+    // Cambio confirmado por el servidor de otro usuario — aplicar en tiempo real
     if (!window._appReady) return;
     window._fbApply && window._fbApply(data);
 
@@ -82,9 +87,7 @@
     if (typeof setSyncStatus === 'function') setSyncStatus('error');
   });
 
-  // _fbInit ya no hace falta — el onSnapshot maneja todo
-  window._fbInit = async () => { /* handled by onSnapshot above */ };
-
+  window._fbInit = async () => { /* manejado por onSnapshot */ };
   window._getHtmlVersion = () => HTML_VERSION;
 </script>
 <style>
@@ -2830,8 +2833,18 @@ window._fbApply = function(data) {
   if (_applying) return; // somos nosotros guardando — ignorar echo
   _applying = true;
   aplicarEstado(data);
-  setTimeout(() => { _applying = false; }, 800);
+  setTimeout(() => {
+    _applying = false;
+    setSyncStatus('live');
+  }, 1000);
 };
+
+// Safety: liberar _applying si quedó trabado por más de 8 segundos
+setInterval(() => {
+  if (_applying) {
+    _applying = false;
+  }
+}, 8000);
 
 function setSyncStatus(state) {
   const dot = document.getElementById('sync-dot');
