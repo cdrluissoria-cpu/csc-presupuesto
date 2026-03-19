@@ -2457,18 +2457,41 @@ function calcResumen() {
     <div class="metric"><div class="mlabel">Posición Final</div><div class="mval ${finalDisplay>=0?'pos':'neg'}">${fmt(finalDisplay)}</div></div>
   `;
 
-  // ── Reservas ──
-  const capitalTrabajo = Math.round(getTotalEgresos() / 12);
-  const reservaIndem   = num('e-indem');
-  const reservaMant    = num('e-rep-ed');
-  const reservaObras   = getTotalInv();
+  // ── Reserva de Capital de Trabajo ──
+  // Calcular directamente igual que el Cuadro Resumen para garantizar el número correcto
+  const _egrCapital = (() => {
+    const suelUni511 = egrGroups[0].items.filter(e=>e.subs)
+      .reduce((s,e) => s + num(`${e.id}-est`) + num(`${e.id}-can`) + num(`${e.id}-uni`), 0);
+    let total = 0;
+    egrGroups.forEach((g,gi) => {
+      g.items.forEach(e => {
+        if (e.subs) total += unidades511.reduce((s,u) => s + num(`${e.id}-${u.key}`), 0);
+        else total += num(e.id);
+      });
+      (egrExtras[gi]||[]).forEach(e => total += num(e.id));
+    });
+    return total; // total COMPLETO incluyendo todos los sueldos
+  })();
+  const capitalTrabajo = Math.round(_egrCapital / 12);
+  const reservaInv   = getTotalInv();
+  const totalReservas = capitalTrabajo + reservaInv;
   $('reservas-grid').innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px">
-      <div class="metric"><div class="mlabel">Capital de Trabajo</div><div class="mlabel" style="font-size:10px;margin-bottom:4px">(1 mes de gastos totales)</div><div class="mval" style="font-size:16px">${fmt(capitalTrabajo)}</div></div>
-      <div class="metric"><div class="mlabel">Reserva Indemnizaciones</div><div class="mlabel" style="font-size:10px;margin-bottom:4px">(511005 · valor anual)</div><div class="mval" style="font-size:16px">${fmt(reservaIndem)}</div></div>
-      <div class="metric"><div class="mlabel">Reserva Mantenimiento</div><div class="mlabel" style="font-size:10px;margin-bottom:4px">(512005 · Edif. y Conserv.)</div><div class="mval" style="font-size:16px">${fmt(reservaMant)}</div></div>
-      <div class="metric"><div class="mlabel">Reserva Obras</div><div class="mlabel" style="font-size:10px;margin-bottom:4px">(Total Inversiones)</div><div class="mval" style="font-size:16px">${fmt(reservaObras)}</div></div>
-      <div class="metric" style="border:1px solid var(--border2)"><div class="mlabel">Total Reservas Sugeridas</div><div class="mlabel" style="font-size:10px;margin-bottom:4px"> </div><div class="mval pos" style="font-size:16px">${fmt(capitalTrabajo+reservaIndem+reservaMant+reservaObras)}</div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+      <div class="metric">
+        <div class="mlabel">Reserva de Capital de Trabajo</div>
+        <div class="mlabel" style="font-size:10px;margin-bottom:6px">1 mes de egresos totales presupuestados</div>
+        <div class="mval" style="font-size:20px">${fmt(capitalTrabajo)}</div>
+      </div>
+      <div class="metric">
+        <div class="mlabel">Reserva de Inversiones</div>
+        <div class="mlabel" style="font-size:10px;margin-bottom:6px">Total inversiones y bienes de uso</div>
+        <div class="mval" style="font-size:20px">${fmt(reservaInv)}</div>
+      </div>
+      <div class="metric" style="border:1.5px solid var(--accent)">
+        <div class="mlabel">Total Reservas Sugeridas</div>
+        <div class="mlabel" style="font-size:10px;margin-bottom:6px">Capital de Trabajo + Inversiones</div>
+        <div class="mval pos" style="font-size:22px">${fmt(totalReservas)}</div>
+      </div>
     </div>`;
 }
 
