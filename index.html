@@ -2633,69 +2633,101 @@ window._fbApply = function(data) {
 // Cuando cambia el estado de control
 window._fbLockUpdate = function(lockData) {
   _editorActual = lockData.editor || '';
-  const libre = lockData.libre !== false && !_editorActual;
+  const libre = lockData.libre === true || !_editorActual;
 
   if (libre) {
-    // Nadie editando
+    // Nadie editando — todos en lectura, pueden tomar control
+    _tengoControl = false;
+    setReadOnly(true);
     setSyncStatus('libre', '');
-    setReadOnly(false);
     $('btn-tomar').style.display = '';
     $('btn-liberar').style.display = 'none';
-    // Si yo acabo de liberar, ya guardé — no hacer nada más
-  } else if (_editorActual === _miNombre) {
-    // Yo tengo el control
+
+  } else if (_editorActual === _miNombre && _miNombre) {
+    // YO tengo el control — habilitar edición
     _tengoControl = true;
-    setSyncStatus('editando', _miNombre);
     setReadOnly(false);
+    setSyncStatus('editando', _miNombre);
     $('btn-tomar').style.display = 'none';
     $('btn-liberar').style.display = '';
+
   } else {
-    // Otro tiene el control
+    // Otro tiene el control — modo lectura
     _tengoControl = false;
-    setSyncStatus('bloqueado', _editorActual);
     setReadOnly(true);
+    setSyncStatus('bloqueado', _editorActual);
     $('btn-tomar').style.display = 'none';
     $('btn-liberar').style.display = 'none';
   }
 };
 
-function setReadOnly(editable) {
-  // Bloquear/desbloquear todos los inputs
-  const inputs = document.querySelectorAll('input:not([type="file"]), [contenteditable]');
-  inputs.forEach(el => {
-    if (el.tagName === 'INPUT') {
-      el.disabled = !editable;
-      el.style.opacity = editable ? '' : '0.5';
-    } else {
-      el.contentEditable = editable ? 'true' : 'false';
-      el.style.opacity = editable ? '' : '0.5';
-    }
+function setReadOnly(bloquear) {
+  // Solo bloquear inputs de datos, no botones de navegación ni del header
+  document.querySelectorAll(
+    'input:not([type="file"]):not([type="hidden"]):not(.resp-inp)'
+  ).forEach(el => {
+    // No tocar inputs de nav/header
+    if (el.closest('.nav') || el.closest('.header') || el.closest('.inc-bar')) return;
+    el.disabled = bloquear;
+    el.style.opacity = bloquear ? '0.5' : '';
+    el.style.cursor = bloquear ? 'not-allowed' : '';
   });
-  // Bloquear spans clickeables de edición
-  document.querySelectorAll('[onclick]').forEach(el => {
-    if (!el.closest('nav') && !el.closest('.header')) {
-      el.style.pointerEvents = editable ? '' : 'none';
-      el.style.opacity = editable ? '' : '0.6';
-    }
+
+  // Bloquear contenteditable (notas, nombre colegio, responsables)
+  document.querySelectorAll('[contenteditable]').forEach(el => {
+    if (el.closest('.header')) return;
+    el.contentEditable = bloquear ? 'false' : 'true';
+    el.style.opacity = bloquear ? '0.6' : '';
+    el.style.cursor = bloquear ? 'not-allowed' : '';
+  });
+
+  // Bloquear spans editables de valores (los que tienen onclick de edición)
+  document.querySelectorAll('span[id$="-disp"][onclick], span[id$="-disp-tot"]').forEach(el => {
+    el.style.pointerEvents = bloquear ? 'none' : '';
+    el.style.cursor = bloquear ? 'default' : 'text';
+    el.style.opacity = bloquear ? '0.6' : '';
+  });
+
+  // Bloquear botones de agregar/eliminar dentro de las tablas
+  document.querySelectorAll('.main button').forEach(el => {
+    el.disabled = bloquear;
+    el.style.opacity = bloquear ? '0.4' : '';
   });
 }
 
 async function tomarControl() {
-  const nombre = prompt('¿Con qué nombre vas a editar?', _miNombre || '');
+  const nombre = prompt('¿Con qué nombre vas a editar?\n(Ej: Silvia, Noelia, Gerardo...)', _miNombre || '');
   if (!nombre || !nombre.trim()) return;
   _miNombre = nombre.trim();
   _tengoControl = true;
+  // Habilitar edición inmediatamente — no esperar el snapshot
+  setReadOnly(false);
+  setSyncStatus('editando', _miNombre);
+  $('btn-tomar').style.display = 'none';
+  $('btn-liberar').style.display = '';
+  // Notificar a los demás via Firebase
   if (window._fbTakeControl) await window._fbTakeControl(_miNombre);
 }
 
 async function liberarControl() {
   if (!_tengoControl) return;
   _tengoControl = false;
+  // Bloquear edición inmediatamente
+  setReadOnly(true);
   setSyncStatus('guardando', '');
+  $('btn-liberar').style.display = 'none';
+  $('btn-tomar').style.display = '';
+  // Guardar estado y liberar en Firebase
   const estado = capturarEstado();
-  if (window._fbReleaseControl) await window._fbReleaseControl(estado, _miNombre);
+  if (window._fbReleaseControl) {
+    try {
+      await window._fbReleaseControl(estado, _miNombre);
+      setSyncStatus('libre', '');
+    } catch(e) {
+      setSyncStatus('error', '');
+    }
+  }
   _miNombre = '';
-  setSyncStatus('libre', '');
 }
 
 function setSyncStatus(state, editor) {
