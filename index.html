@@ -739,6 +739,9 @@ tr.acc-subtotal td {
       <button class="nav-item" onclick="goTab('resumen',this)" style="color:var(--accent);font-weight:500">
         <span class="icon">■</span> Resumen Final
       </button>
+      <button class="nav-item" onclick="goTab('pe',this)" style="color:var(--info);font-weight:500">
+        <span class="icon">◉</span> Punto de Equilibrio
+      </button>
     </div>
   </nav>
 
@@ -976,9 +979,45 @@ EGRESOS
       </div>
     </div>
 
+    <!-- ═══════════════════════════════ PUNTO DE EQUILIBRIO ═══════════════════════════════ -->
+    <div class="panel" id="tab-pe">
+      <div class="page-title">Punto de Equilibrio</div>
+      <p class="page-sub">Cantidad de alumnos necesaria para cubrir todos los costos operativos. Se calcula sobre el presupuesto vigente.</p>
+
+      <div class="metrics" id="met-pe"></div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+        <div class="section">
+          <div class="section-head">◈ Sin Unidades de Negocio</div>
+          <div class="section-body">
+            <div id="pe-sin-uni" style="font-size:13px;line-height:2"></div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-head">◈ Con Unidades de Negocio</div>
+          <div class="section-body">
+            <div id="pe-con-uni" style="font-size:13px;line-height:2"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">◈ Gráfico — Ingresos vs Costos</div>
+        <div class="section-body" style="padding:16px">
+          <canvas id="pe-chart" height="120"></canvas>
+        </div>
+      </div>
+
+      <div class="section" style="margin-top:12px">
+        <div class="section-head">◈ Supuestos del Cálculo</div>
+        <div class="section-body" id="pe-supuestos" style="font-size:12px;line-height:1.9;color:var(--text2)"></div>
+      </div>
+    </div>
+
   </main>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const num = id => parseFloat($( id )?.value || 0) || 0;
@@ -1373,34 +1412,100 @@ function toggleAcc(groupId) {
   rows.forEach(r => r.classList.toggle('hidden'));
 }
 
+// ─── CUENTAS PERSONALIZADAS ───
+// Cuentas extras agregadas por el usuario en cada grupo (rec y egr)
+const recExtras = {}; // { gi: [{id, cod, label, men, ms}] }
+const egrExtras = {}; // { gi: [{id, cod, label, ref}] }
+let _customSeq = 1;
+function newCid() { return 'cx-' + (_customSeq++); }
+
 function initRecursos() {
   let html = '';
   recGroups.forEach((g, gi) => {
     const gid = 'rg-' + gi;
+    // No renderizar el grupo 511 items con subs desde acá (ese es solo egresos)
     html += `<tr class="acc-group" data-group="${gid}" onclick="toggleAcc('${gid}')">
       <td colspan="4"><i class="toggle-icon">▶</i>${g.titulo}<span id="${gid}-sub" style="float:right;font-weight:400;font-size:11px;opacity:.7">—</span></td>
     </tr>`;
-    html += g.items.map(r => `
-      <tr class="acc-item hidden" data-group="${gid}">
-        <td>
-          <span style="font-size:10px;color:var(--text3);margin-right:6px;font-family:'DM Mono',monospace">${r.cod}</span>${r.label}
-        </td>
-        <td class="r">
-          ${r.auto
-            ? `<span id="${r.id}-disp" style="color:var(--text3);font-size:12.5px">—</span><input type="hidden" id="${r.id}-m" value="${r.men}">`
-            : `<span id="${r.id}-disp" style="cursor:text;font-size:12.5px" onclick="event.stopPropagation();editarMensual('${r.id}')">$ ${r.men.toLocaleString('es-AR')}</span>
-               <input type="number" id="${r.id}-m" value="${r.men}" style="display:none;width:130px;text-align:right;padding:4px 6px;border:1px solid var(--border2);border-radius:4px;font-family:'DM Mono',monospace;font-size:12.5px"
-                 onblur="cerrarMensual('${r.id}')" oninput="calcRecursos()">`
-          }
-        </td>
-        <td class="r"><input type="number" id="${r.id}-ms" value="${r.ms}" ${r.auto?'readonly style="color:var(--text3);background:var(--surface2)"':''} oninput="calcRecursos()" style="width:50px"></td>
-        <td class="r" id="${r.id}-tot" style="font-weight:500">—</td>
-      </tr>
-    `).join('');
-    // subtotal oculto (solo para cálculo interno)
+    html += g.items.map((r, ri) => renderRecRow(r, gid, gi, ri)).join('');
+    // Filas extras del usuario
+    if (!recExtras[gi]) recExtras[gi] = [];
+    html += recExtras[gi].map((r, ei) => renderRecExtraRow(r, gid, gi, ei)).join('');
+    // Botón agregar cuenta
+    const canAdd = !g.items.some(r => r.auto); // no agregar en grupos auto
+    html += `<tr class="acc-item hidden" data-group="${gid}">
+      <td colspan="4" style="padding:4px 16px">
+        <button onclick="event.stopPropagation();addRecExtra(${gi})" style="font-size:11px;color:var(--accent);background:none;border:1px dashed var(--accent);border-radius:4px;padding:3px 10px;cursor:pointer">+ agregar cuenta</button>
+      </td>
+    </tr>`;
     html += `<tr style="display:none"><td id="${gid}-total"></td></tr>`;
   });
   $('rec-body').innerHTML = html;
+}
+
+function renderRecRow(r, gid, gi, ri) {
+  return `<tr class="acc-item hidden" data-group="${gid}">
+    <td>
+      <span style="font-size:10px;color:var(--text3);margin-right:6px;font-family:'DM Mono',monospace">${r.cod}</span>${r.label}
+    </td>
+    <td class="r">
+      ${r.auto
+        ? `<span id="${r.id}-disp" style="color:var(--text3);font-size:12.5px">—</span><input type="hidden" id="${r.id}-m" value="${r.men}">`
+        : `<span id="${r.id}-disp" style="cursor:text;font-size:12.5px" onclick="event.stopPropagation();editarMensual('${r.id}')">$ ${r.men.toLocaleString('es-AR')}</span>
+           <input type="number" id="${r.id}-m" value="${r.men}" style="display:none;width:130px;text-align:right;padding:4px 6px;border:1px solid var(--border2);border-radius:4px;font-family:'DM Mono',monospace;font-size:12.5px"
+             onblur="cerrarMensual('${r.id}')" oninput="calcRecursos()">`
+      }
+    </td>
+    <td class="r"><input type="number" id="${r.id}-ms" value="${r.ms}" ${r.auto?'readonly style="color:var(--text3);background:var(--surface2)"':''} oninput="calcRecursos()" style="width:50px"></td>
+    <td class="r" id="${r.id}-tot" style="font-weight:500">—</td>
+  </tr>`;
+}
+
+function renderRecExtraRow(r, gid, gi, ei) {
+  return `<tr class="acc-item hidden" data-group="${gid}" style="background:var(--surface)">
+    <td style="padding:4px 8px 4px 28px">
+      <input value="${r.cod}" placeholder="Nº cuenta" oninput="recExtras[${gi}][${ei}].cod=this.value"
+        style="width:70px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);border:none;border-bottom:1px solid var(--border2);background:transparent;margin-right:6px;padding:2px 4px">
+      <input value="${r.label}" placeholder="Descripción de la cuenta" oninput="recExtras[${gi}][${ei}].label=this.value;calcRecursos()"
+        style="width:200px;font-size:12.5px;border:none;border-bottom:1px solid var(--border2);background:transparent;padding:2px 4px">
+    </td>
+    <td class="r">
+      <span id="${r.id}-disp" style="cursor:text;font-size:12.5px" onclick="event.stopPropagation();editarMensual('${r.id}')">$ ${(r.men||0).toLocaleString('es-AR')}</span>
+      <input type="number" id="${r.id}-m" value="${r.men||0}" style="display:none;width:130px;text-align:right;padding:4px 6px;border:1px solid var(--border2);border-radius:4px;font-family:'DM Mono',monospace;font-size:12.5px"
+        onblur="cerrarMensual('${r.id}')" oninput="calcRecursos()">
+    </td>
+    <td class="r"><input type="number" id="${r.id}-ms" value="${r.ms||12}" oninput="recExtras[${gi}][${ei}].ms=+this.value;calcRecursos()" style="width:50px"></td>
+    <td class="r" style="white-space:nowrap">
+      <span id="${r.id}-tot" style="font-weight:500">—</span>
+      <button onclick="event.stopPropagation();moveRecExtra(${gi},${ei},-1)" style="border:none;background:none;cursor:pointer;color:var(--text3);padding:0 3px" title="Subir">↑</button>
+      <button onclick="event.stopPropagation();moveRecExtra(${gi},${ei},1)" style="border:none;background:none;cursor:pointer;color:var(--text3);padding:0 3px" title="Bajar">↓</button>
+      <button onclick="event.stopPropagation();delRecExtra(${gi},${ei})" style="border:none;background:none;cursor:pointer;color:var(--danger);padding:0 3px" title="Eliminar">✕</button>
+    </td>
+  </tr>`;
+}
+
+function addRecExtra(gi) {
+  if (!recExtras[gi]) recExtras[gi] = [];
+  recExtras[gi].push({id: newCid(), cod:'', label:'Nueva cuenta', men:0, ms:12});
+  initRecursos(); calcRecursos();
+  // Reabrir el acordeón del grupo
+  const gid = 'rg-' + gi;
+  const hdr = document.querySelector(`.acc-group[data-group="${gid}"]`);
+  if (hdr && !hdr.classList.contains('open')) { hdr.classList.add('open'); document.querySelectorAll(`.acc-item[data-group="${gid}"]`).forEach(r=>r.classList.remove('hidden')); }
+}
+function delRecExtra(gi, ei) {
+  recExtras[gi].splice(ei, 1);
+  initRecursos(); calcRecursos();
+  const gid='rg-'+gi; const hdr=document.querySelector(`.acc-group[data-group="${gid}"]`);
+  if(hdr&&!hdr.classList.contains('open')){hdr.classList.add('open');document.querySelectorAll(`.acc-item[data-group="${gid}"]`).forEach(r=>r.classList.remove('hidden'));}
+}
+function moveRecExtra(gi, ei, dir) {
+  const arr = recExtras[gi]; const ni = ei + dir;
+  if (ni < 0 || ni >= arr.length) return;
+  [arr[ei], arr[ni]] = [arr[ni], arr[ei]];
+  initRecursos(); calcRecursos();
+  const gid='rg-'+gi; const hdr=document.querySelector(`.acc-group[data-group="${gid}"]`);
+  if(hdr&&!hdr.classList.contains('open')){hdr.classList.add('open');document.querySelectorAll(`.acc-item[data-group="${gid}"]`).forEach(r=>r.classList.remove('hidden'));}
 }
 
 function editarMensual(rid) {
@@ -1428,7 +1533,6 @@ function calcRecursos() {
     g.items.forEach(r => {
       let val;
       if (r.auto === 'mens') {
-        // Bruto — las becas se deducen por separado en 412018
         val = calcCuotas().mensBruto;
         const mel = $(r.id+'-m'); if (mel) mel.value = Math.round(val/10);
         const disp = $(r.id+'-disp'); if (disp) disp.textContent = '$ ' + Math.round(val/10).toLocaleString('es-AR');
@@ -1450,10 +1554,17 @@ function calcRecursos() {
         if (disp && inp && inp.style.display === 'none')
           disp.textContent = '$ ' + Math.round(val / (num(r.id+'-ms')||1)).toLocaleString('es-AR');
       }
-      groupTotal += val;
-      total += val;
+      groupTotal += val; total += val;
       const tel = $(r.id+'-tot');
-      if (tel) { tel.textContent = val < 0 ? fmt(val) : fmt(val); tel.style.color = val < 0 ? 'var(--danger)' : ''; }
+      if (tel) { tel.textContent = fmt(val); tel.style.color = val < 0 ? 'var(--danger)' : ''; }
+    });
+    // Cuentas extras del usuario
+    (recExtras[gi]||[]).forEach(r => {
+      const val = num(r.id+'-m') * num(r.id+'-ms');
+      const disp=$(r.id+'-disp'), inp=$(r.id+'-m');
+      if(disp&&inp&&inp.style.display==='none') disp.textContent='$ '+Math.round(val/(num(r.id+'-ms')||1)).toLocaleString('es-AR');
+      const tel=$(r.id+'-tot'); if(tel) tel.textContent=fmt(val);
+      groupTotal += val; total += val;
     });
     const gid = 'rg-' + gi;
     const subEl = $(gid+'-sub'), totEl = $(gid+'-total');
@@ -1678,9 +1789,74 @@ function initEgresos() {
         <td class="r" id="${e.id}-v" style="cursor:pointer" onclick="event.stopPropagation();editPres('${e.id}')">—</td>
       </tr>`;
     }).join('');
+    // Filas extras del usuario para egresos
+    if (!egrExtras[gi]) egrExtras[gi] = [];
+    html += egrExtras[gi].map((e, ei) => renderEgrExtraRow(e, gid, gi, ei)).join('');
+    // Botón agregar — no en grupo 517 (caja gen auto) ni 511 (personal)
+    const noAdd = gi === 0 || g.titulo.includes('517');
+    if (!noAdd) {
+      html += `<tr class="acc-item hidden" data-group="${gid}">
+        <td colspan="5" style="padding:4px 16px">
+          <button onclick="event.stopPropagation();addEgrExtra(${gi})" style="font-size:11px;color:var(--warn);background:none;border:1px dashed var(--warn);border-radius:4px;padding:3px 10px;cursor:pointer">+ agregar cuenta</button>
+        </td>
+      </tr>`;
+    }
     html += `<tr style="display:none"><td id="${gid}-ref"></td><td id="${gid}-total"></td></tr>`;
   });
   $('egr-body').innerHTML = html;
+}
+
+function renderEgrExtraRow(e, gid, gi, ei) {
+  return `<tr class="acc-item hidden" data-group="${gid}" style="background:var(--surface)">
+    <td style="padding:4px 8px 4px 28px">
+      <input value="${e.cod}" placeholder="Nº cuenta" oninput="egrExtras[${gi}][${ei}].cod=this.value"
+        style="width:70px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);border:none;border-bottom:1px solid var(--border2);background:transparent;margin-right:6px;padding:2px 4px">
+      <input value="${e.label}" placeholder="Descripción" oninput="egrExtras[${gi}][${ei}].label=this.value"
+        style="width:200px;font-size:12.5px;border:none;border-bottom:1px solid var(--border2);background:transparent;padding:2px 4px">
+    </td>
+    <td class="r">
+      <span id="${e.id}-ref-disp" style="cursor:text;font-size:12px;color:var(--text3)" onclick="event.stopPropagation();editRef('${e.id}')">${fmt(e.ref||0)}</span>
+      <input type="number" id="${e.id}-ref-inp" value="${e.ref||0}" style="display:none;width:110px;text-align:right;padding:3px 6px;border:1px solid var(--border2);border-radius:4px;font-family:'DM Mono',monospace;font-size:12px" onblur="cerrarRef('${e.id}')" oninput="calcEgresos()">
+    </td>
+    <td class="r">
+      <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end">
+        <input type="number" id="${e.id}-pct" placeholder="—" style="width:55px;text-align:right;padding:3px 5px;border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:12px;background:var(--bg);color:var(--warn)" oninput="aplicarPctIndiv('${e.id}')">
+        <span style="font-size:11px;color:var(--text3)">%</span>
+      </div>
+    </td>
+    <td class="r">
+      <span id="${e.id}-disp" style="font-size:12.5px;font-weight:500">${fmt(e.ref||0)}</span>
+      <input type="number" id="${e.id}" value="${e.ref||0}" style="display:none;width:110px;text-align:right;padding:3px 6px;border:1px solid var(--border2);border-radius:4px;font-family:'DM Mono',monospace;font-size:12.5px" onblur="cerrarPres('${e.id}')" oninput="clearPct('${e.id}');calcEgresos()">
+    </td>
+    <td class="r" style="white-space:nowrap">
+      <span id="${e.id}-v" style="cursor:pointer;font-size:12px" onclick="event.stopPropagation();editPres('${e.id}')">—</span>
+      <button onclick="event.stopPropagation();moveEgrExtra(${gi},${ei},-1)" style="border:none;background:none;cursor:pointer;color:var(--text3);padding:0 2px" title="Subir">↑</button>
+      <button onclick="event.stopPropagation();moveEgrExtra(${gi},${ei},1)" style="border:none;background:none;cursor:pointer;color:var(--text3);padding:0 2px" title="Bajar">↓</button>
+      <button onclick="event.stopPropagation();delEgrExtra(${gi},${ei})" style="border:none;background:none;cursor:pointer;color:var(--danger);padding:0 2px" title="Eliminar">✕</button>
+    </td>
+  </tr>`;
+}
+
+function addEgrExtra(gi) {
+  if (!egrExtras[gi]) egrExtras[gi] = [];
+  egrExtras[gi].push({id: newCid(), cod:'', label:'Nueva cuenta', ref:0, tipo:'otro'});
+  initEgresos(); calcEgresos();
+  const gid='eg-'+gi; const hdr=document.querySelector(`.acc-group[data-group="${gid}"]`);
+  if(hdr&&!hdr.classList.contains('open')){hdr.classList.add('open');document.querySelectorAll(`.acc-item[data-group="${gid}"]`).forEach(r=>r.classList.remove('hidden'));}
+}
+function delEgrExtra(gi, ei) {
+  egrExtras[gi].splice(ei, 1);
+  initEgresos(); calcEgresos();
+  const gid='eg-'+gi; const hdr=document.querySelector(`.acc-group[data-group="${gid}"]`);
+  if(hdr&&!hdr.classList.contains('open')){hdr.classList.add('open');document.querySelectorAll(`.acc-item[data-group="${gid}"]`).forEach(r=>r.classList.remove('hidden'));}
+}
+function moveEgrExtra(gi, ei, dir) {
+  const arr = egrExtras[gi]; const ni = ei + dir;
+  if (ni < 0 || ni >= arr.length) return;
+  [arr[ei], arr[ni]] = [arr[ni], arr[ei]];
+  initEgresos(); calcEgresos();
+  const gid='eg-'+gi; const hdr=document.querySelector(`.acc-group[data-group="${gid}"]`);
+  if(hdr&&!hdr.classList.contains('open')){hdr.classList.add('open');document.querySelectorAll(`.acc-item[data-group="${gid}"]`).forEach(r=>r.classList.remove('hidden'));}
 }
 
 function toggleSub(subgid) {
@@ -1808,13 +1984,9 @@ function calcEgresos() {
     g.items.forEach(e => {
       let v;
       if (e.subs) {
-        // Total = suma de sub-cuentas por unidad
         v = unidades511.reduce((s,u) => s + num(`${e.id}-${u.key}`), 0);
-        // Actualizar input principal (hidden)
         const inp = $(e.id); if(inp) inp.value = v;
-        // Actualizar display total en la fila de la cuenta
         const dispTot = $(`${e.id}-disp-tot`); if(dispTot) dispTot.textContent = fmt(v);
-        // Variación respecto a referencia
         const p = parseFloat(pct(v, e.ref));
         const cl = p > 50 ? 'badge-bad' : (p > 20 ? 'badge-warn' : 'badge-ok');
         const vEl = $(`${e.id}-v`); if(vEl) vEl.innerHTML = `<span class="badge ${cl}">${p>=0?'+':''}${isNaN(p)?'—':p+'%'}</span>`;
@@ -1828,6 +2000,16 @@ function calcEgresos() {
       }
       groupTotal += v; groupRef += e.ref; total += v;
     });
+    // Cuentas extras del usuario
+    (egrExtras[gi]||[]).forEach(e => {
+      const v = num(e.id);
+      const p = parseFloat(pct(v, e.ref||0));
+      const cl = p > 50 ? 'badge-bad' : (p > 20 ? 'badge-warn' : 'badge-ok');
+      const vEl=$(e.id+'-v'); if(vEl) vEl.innerHTML=`<span class="badge ${cl}">${p>=0?'+':''}${isNaN(p)?'—':p+'%'}</span>`;
+      const dispEl=$(e.id+'-disp'), inpEl=$(e.id);
+      if(dispEl&&inpEl&&inpEl.style.display==='none') dispEl.textContent=fmt(v);
+      groupTotal += v; groupRef += (e.ref||0); total += v;
+    });
     const gid = 'eg-' + gi;
     const subEl=$(gid+'-sub'), totEl=$(gid+'-total'), refEl=$(gid+'-ref');
     if (subEl) subEl.textContent = fmt(groupTotal);
@@ -1835,9 +2017,17 @@ function calcEgresos() {
     if (refEl) refEl.textContent = fmt(groupRef);
   });
   $('egr-total').textContent = fmt(total);
-  // Actualizar sueldos propios en unidades de negocio automáticamente
   calcUnidadesER();
   return total;
+}
+
+function getTotalEgresos() {
+  const total511Unidades = egrGroups[0].items
+    .filter(e => e.subs)
+    .reduce((s, e) => s + num(`${e.id}-est`) + num(`${e.id}-can`) + num(`${e.id}-uni`), 0);
+  const baseTotal = egrData.reduce((s,e) => s + num(e.id), 0);
+  const extrasTotal = Object.values(egrExtras).flat().reduce((s,e) => s + num(e.id), 0);
+  return baseTotal + extrasTotal - total511Unidades;
 }
 
 function getTotalEgresos() {
@@ -2137,6 +2327,131 @@ function calcResumen() {
   `;
 }
 
+// ─── PUNTO DE EQUILIBRIO ───
+let _peChart = null;
+
+function calcPE() {
+  const totalAlumnos = niveles.reduce((s,_,i) => s + num('nv-al-'+i), 0);
+  if (totalAlumnos === 0) return;
+
+  // Cuota promedio ponderada (mensual, base + complejo × multiplicador marzo)
+  const mults = getMults();
+  let ingresoMensPorAlumno = 0;
+  niveles.forEach((_,i) => {
+    const al = num('nv-al-'+i), cu = num('nv-cu-'+i), cc = num('nv-cc-'+i)||0;
+    ingresoMensPorAlumno += (cu * mults[0] + cc) * al;
+  });
+  const cuotaProm = ingresoMensPorAlumno / totalAlumnos; // ingreso mensual promedio por alumno
+
+  // Ingresos variables = mensualidades + matrículas (proporcionales a alumnos)
+  const cuotaRes = calcCuotas();
+  const ingVar = cuotaRes.mensBruto + cuotaRes.matriculas; // proporcional a alumnos
+
+  // Ingresos fijos (no dependen de alumnos): aportes estatales, otros aranceles, financieros
+  const ingFijoRec = calcRecursos() - ingVar + cuotaRes.becaTotal; // total rec - variables + becas (negativas)
+
+  // Costos fijos = total egresos operativos (Colegio)
+  const costosFijos = getTotalEgresos();
+
+  // ── Sin Unidades de Negocio ──
+  // PE = Costos Fijos / (Cuota prom mensual × 10 meses + matrícula promedio) 
+  const matrProm = cuotaRes.matriculas / totalAlumnos;
+  const ingAnualPorAlumno = cuotaProm * 10 + matrProm; // 10 mensualidades + matrícula
+  const peSinUni = ingAnualPorAlumno > 0 ? Math.ceil(costosFijos / ingAnualPorAlumno) : 0;
+  const coberturaSin = totalAlumnos > 0 ? ((totalAlumnos / peSinUni) * 100).toFixed(1) : 0;
+
+  // ── Con Unidades de Negocio ──
+  const uni = getUnidadTotals();
+  const resultadoNetoUni = uni.ing - uni.gas; // contribución neta de unidades
+  const costosFijosConUni = costosFijos - resultadoNetoUni; // costos reducidos por contribución
+  const peConUni = ingAnualPorAlumno > 0 ? Math.ceil(costosFijosConUni / ingAnualPorAlumno) : 0;
+  const coberturaConUni = totalAlumnos > 0 ? ((totalAlumnos / peConUni) * 100).toFixed(1) : 0;
+
+  // ── Métricas ──
+  $('met-pe').innerHTML = `
+    <div class="metric"><div class="mlabel">Alumnos Actuales</div><div class="mval">${totalAlumnos}</div></div>
+    <div class="metric"><div class="mlabel">PE Sin Unidades</div><div class="mval ${peSinUni <= totalAlumnos ? 'pos' : 'neg'}">${peSinUni.toLocaleString('es-AR')} al.</div></div>
+    <div class="metric"><div class="mlabel">PE Con Unidades</div><div class="mval ${peConUni <= totalAlumnos ? 'pos' : 'neg'}">${peConUni.toLocaleString('es-AR')} al.</div></div>
+    <div class="metric"><div class="mlabel">Margen Sin Uni</div><div class="mval ${totalAlumnos>=peSinUni?'pos':'neg'}">${(totalAlumnos-peSinUni)>0?'+':''}${(totalAlumnos-peSinUni).toLocaleString('es-AR')} al.</div></div>
+    <div class="metric"><div class="mlabel">Margen Con Uni</div><div class="mval ${totalAlumnos>=peConUni?'pos':'neg'}">${(totalAlumnos-peConUni)>0?'+':''}${(totalAlumnos-peConUni).toLocaleString('es-AR')} al.</div></div>
+  `;
+
+  const fmtAl = n => n.toLocaleString('es-AR') + ' alumnos';
+
+  $('pe-sin-uni').innerHTML = `
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center">
+      <span style="color:var(--text3);font-size:11px">Costos fijos anuales</span><strong>${fmt(costosFijos)}</strong>
+      <span style="color:var(--text3);font-size:11px">Ingreso anual por alumno</span><strong>${fmt(Math.round(ingAnualPorAlumno))}</strong>
+      <span style="color:var(--text3);font-size:11px">Cuota promedio mensual</span><strong>${fmt(Math.round(cuotaProm))}</strong>
+      <span style="color:var(--text3);font-size:11px">Matrícula promedio</span><strong>${fmt(Math.round(matrProm))}</strong>
+      <span style="color:var(--text3);font-size:11px">─────</span><span></span>
+      <span style="color:var(--text3);font-size:11px">Punto de Equilibrio</span>
+      <strong style="font-size:18px;color:${peSinUni<=totalAlumnos?'var(--accent)':'var(--danger)'}">${fmtAl(peSinUni)}</strong>
+      <span style="color:var(--text3);font-size:11px">Cobertura actual</span>
+      <strong style="color:${coberturaSin>=100?'var(--accent)':'var(--danger)'}">${coberturaSin}%</strong>
+      <span style="color:var(--text3);font-size:11px">Superávit / Déficit</span>
+      <strong style="color:${totalAlumnos>=peSinUni?'var(--accent)':'var(--danger)'}">${totalAlumnos>=peSinUni?'✓ Superávit':'✗ Déficit'} de ${Math.abs(totalAlumnos-peSinUni).toLocaleString('es-AR')} al.</strong>
+    </div>`;
+
+  $('pe-con-uni').innerHTML = `
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:center">
+      <span style="color:var(--text3);font-size:11px">Costos fijos anuales</span><strong>${fmt(costosFijos)}</strong>
+      <span style="color:var(--text3);font-size:11px">Contribución neta unidades</span><strong style="color:var(--accent)">${fmt(Math.round(resultadoNetoUni))}</strong>
+      <span style="color:var(--text3);font-size:11px">Costos a cubrir con cuotas</span><strong>${fmt(Math.round(costosFijosConUni))}</strong>
+      <span style="color:var(--text3);font-size:11px">Ingreso anual por alumno</span><strong>${fmt(Math.round(ingAnualPorAlumno))}</strong>
+      <span style="color:var(--text3);font-size:11px">─────</span><span></span>
+      <span style="color:var(--text3);font-size:11px">Punto de Equilibrio</span>
+      <strong style="font-size:18px;color:${peConUni<=totalAlumnos?'var(--accent)':'var(--danger)'}">${fmtAl(peConUni)}</strong>
+      <span style="color:var(--text3);font-size:11px">Cobertura actual</span>
+      <strong style="color:${coberturaConUni>=100?'var(--accent)':'var(--danger)'}">${coberturaConUni}%</strong>
+      <span style="color:var(--text3);font-size:11px">Superávit / Déficit</span>
+      <strong style="color:${totalAlumnos>=peConUni?'var(--accent)':'var(--danger)'}">${totalAlumnos>=peConUni?'✓ Superávit':'✗ Déficit'} de ${Math.abs(totalAlumnos-peConUni).toLocaleString('es-AR')} al.</strong>
+    </div>`;
+
+  // ── Gráfico ──
+  const maxAl = Math.max(totalAlumnos * 1.3, peSinUni * 1.2, peConUni * 1.2);
+  const steps = 8;
+  const labels = Array.from({length: steps+1}, (_,i) => Math.round(maxAl * i / steps));
+  const ingLine = labels.map(al => Math.round(al * ingAnualPorAlumno));
+  const costoSinLine = labels.map(() => costosFijos);
+  const costoConLine = labels.map(() => costosFijosConUni);
+
+  const canvas = $('pe-chart');
+  if (_peChart) { _peChart.destroy(); _peChart = null; }
+  _peChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: labels.map(l => l.toLocaleString('es-AR') + ' al.'),
+      datasets: [
+        { label: 'Ingresos por Cuotas', data: ingLine, borderColor: '#4A9E6A', backgroundColor: 'rgba(74,158,106,0.08)', tension: 0.1, pointRadius: 3 },
+        { label: 'Costos Sin Unidades', data: costoSinLine, borderColor: '#C45B4A', backgroundColor: 'transparent', borderDash: [6,3], tension: 0, pointRadius: 0 },
+        { label: 'Costos Con Unidades', data: costoConLine, borderColor: '#6A9EC4', backgroundColor: 'transparent', borderDash: [4,4], tension: 0, pointRadius: 0 },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top', labels: { font: { family: 'DM Mono', size: 11 } } },
+        tooltip: { callbacks: { label: ctx => ' $ ' + ctx.raw.toLocaleString('es-AR') } }
+      },
+      scales: {
+        y: { ticks: { callback: v => '$ ' + (v/1000000).toFixed(0) + 'M', font: { family: 'DM Mono', size: 10 } } },
+        x: { ticks: { font: { family: 'DM Mono', size: 10 } } }
+      }
+    }
+  });
+
+  $('pe-supuestos').innerHTML = `
+    <div style="padding:12px 16px">
+      · Ingresos variables = Mensualidades (bruto) + Matrículas → proporcionales a cantidad de alumnos<br>
+      · Costos fijos = Total Egresos Operativos del presupuesto (sin doble contabilización de sueldos por unidad)<br>
+      · Cuota promedio ponderada por nivel y cantidad de alumnos, aplicando incremento de marzo<br>
+      · Período considerado: 10 mensualidades + 1 matrícula por alumno<br>
+      · Sin Unidades: los costos de Estacionamiento, Cantina y Uniformes/Librería se incluyen en los fijos<br>
+      · Con Unidades: el resultado neto de las unidades reduce los costos a cubrir con cuotas
+    </div>`;
+}
+
 function updateAll() {
   calcInicio();
   calcCuotas();
@@ -2146,6 +2461,7 @@ function updateAll() {
   renderUnidadesER();
   calcInv();
   calcResumen();
+  calcPE();
   $('last-saved').textContent = 'actualizado ' + new Date().toLocaleTimeString('es-AR');
   if (window._appReady) fbAutoSave();
 }
@@ -2339,6 +2655,10 @@ function capturarEstado() {
     const el = document.getElementById(id+'-name');
     if (el && !el.classList.contains('empty')) estado.responsables[id] = el.textContent;
   });
+  // Cuentas extras personalizadas
+  estado.recExtras = JSON.parse(JSON.stringify(recExtras));
+  estado.egrExtras = JSON.parse(JSON.stringify(egrExtras));
+  estado._customSeq = _customSeq;
   return estado;
 }
 
@@ -2392,6 +2712,16 @@ function aplicarEstado(estado) {
     });
   }
   if (estado.uerVals) Object.assign(uerVals, estado.uerVals);
+  // Restaurar cuentas extras personalizadas
+  if (estado.recExtras) {
+    Object.keys(estado.recExtras).forEach(gi => { recExtras[gi] = estado.recExtras[gi]; });
+  }
+  if (estado.egrExtras) {
+    Object.keys(estado.egrExtras).forEach(gi => { egrExtras[gi] = estado.egrExtras[gi]; });
+  }
+  if (estado._customSeq) _customSeq = estado._customSeq;
+  // Re-render con extras restaurados
+  initRecursos(); initEgresos();
   if (estado.responsables) {
     Object.entries(estado.responsables).forEach(([id, val]) => {
       const el = document.getElementById(id+'-name');
