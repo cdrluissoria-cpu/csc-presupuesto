@@ -8,7 +8,7 @@
 <!-- Firebase -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, onSnapshot }
+  import { getFirestore, doc, setDoc, onSnapshot }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   const firebaseConfig = {
@@ -24,71 +24,82 @@
   const db  = getFirestore(app);
   const DOC = doc(db, 'presupuesto', '2026');
 
+  const HTML_VERSION = 4;
+  window._getHtmlVersion = () => HTML_VERSION;
+
+  // ID único de esta pestaña — para no recargarse a sí mismo
+  const MY_TAB = Math.random().toString(36).slice(2);
+
   // ── GUARDAR ──
   window._fbSave = async (estado) => {
-    await setDoc(DOC, estado);
+    await setDoc(DOC, { ...estado, _tab: MY_TAB, _reload: false });
   };
 
-  // ── CARGA INICIAL (F5 / primera vez) ──
-  // Espera a que el main script esté listo, luego lee Firebase y arranca el listener
-  // Versión del HTML — incrementar cada vez que se sube una nueva versión
-  // Si Firebase tiene una versión MENOR, no restaura automáticamente
-  const HTML_VERSION = 3;
+  // ── FORZAR RECARGA EN TODOS LOS DISPOSITIVOS ──
+  window._fbForceSync = async () => {
+    if (!window._fbSave) return;
+    // Guardar estado actual con flag _reload: true
+    const estado = capturarEstado();
+    await setDoc(DOC, { ...estado, _tab: MY_TAB, _reload: true });
+  };
 
-  // ── LISTENER EN TIEMPO REAL ──
-  // includeMetadataChanges: true para recibir TODOS los eventos
-  // Filtramos hasPendingWrites para ignorar el write local propio
-  let _initDone = false;
-  let _lastSavedData = null;
-
-  onSnapshot(DOC, { includeMetadataChanges: true }, snap => {
+  // ── LISTENER ──
+  let _firstLoad = true;
+  onSnapshot(DOC, snap => {
     if (!snap.exists()) return;
-
-    // Ignorar eventos de escritura local pendiente (son nuestros propios saves)
-    if (snap.metadata.hasPendingWrites) return;
-
     const data = snap.data();
     if (!data || !data.v) return;
 
-    if (!_initDone) {
-      // Primera llegada desde servidor = carga inicial
-      _initDone = true;
-      const fbVersion = data._htmlVersion || 1;
+    // Si viene de esta misma pestaña, ignorar
+    if (data._tab === MY_TAB) {
+      if (typeof setSyncStatus === 'function') setSyncStatus('live');
+      return;
+    }
 
-      if (fbVersion < HTML_VERSION) {
-        setTimeout(() => {
+    // Si tiene flag de recarga forzada — recargar la página completa
+    if (data._reload === true && !_firstLoad) {
+      console.log('🔄 Recarga forzada recibida');
+      setTimeout(() => location.reload(), 300);
+      return;
+    }
+
+    if (_firstLoad) {
+      // Carga inicial — restaurar estado
+      _firstLoad = false;
+      const fbVersion = data._htmlVersion || 1;
+      setTimeout(() => {
+        if (fbVersion < HTML_VERSION) {
           if (typeof mostrarAvisoVersionAnterior === 'function')
             mostrarAvisoVersionAnterior(data);
-        }, 800);
-      } else {
-        setTimeout(() => {
-          _applying = true;
-          if (typeof aplicarEstado === 'function') aplicarEstado(data);
-          setTimeout(() => {
-            _applying = false;
-            if (typeof setSyncStatus === 'function') setSyncStatus('live');
-          }, 1000);
-        }, 300);
-      }
-
-      setTimeout(() => {
+        } else {
+          if (typeof aplicarEstado === 'function') {
+            window._applying = true;
+            aplicarEstado(data);
+            setTimeout(() => {
+              window._applying = false;
+              if (typeof setSyncStatus === 'function') setSyncStatus('live');
+            }, 1200);
+          }
+        }
         window._appReady = true;
         if (typeof setSyncStatus === 'function') setSyncStatus('live');
       }, 400);
       return;
     }
 
-    // Cambio confirmado por el servidor de otro usuario — aplicar en tiempo real
-    if (!window._appReady) return;
-    window._fbApply && window._fbApply(data);
+    // Cambio normal de otro usuario — aplicar
+    if (!window._appReady || window._applying) return;
+    console.log('📥 Cambio remoto — aplicando...');
+    window._applying = true;
+    if (typeof aplicarEstado === 'function') aplicarEstado(data);
+    setTimeout(() => {
+      window._applying = false;
+      if (typeof setSyncStatus === 'function') setSyncStatus('live');
+    }, 1200);
 
   }, err => {
-    console.error('Firebase listener error:', err);
     if (typeof setSyncStatus === 'function') setSyncStatus('error');
   });
-
-  window._fbInit = async () => { /* manejado por onSnapshot */ };
-  window._getHtmlVersion = () => HTML_VERSION;
 </script>
 <style>
 :root {
@@ -736,6 +747,7 @@ tr.acc-subtotal td {
       <span id="sync-text">conectando...</span>
     </span>
 
+    <button class="btn" onclick="forzarSincronizacion()" style="padding:5px 14px;font-size:11px;background:#2D5A3D;color:#fff;border-color:#2D5A3D;font-weight:600" title="Guarda y fuerza recarga en todos los dispositivos">🔄 sincronizar</button>
     <button class="btn" style="padding:5px 12px;font-size:11px;color:#4A9E6A;border-color:#4A9E6A" onclick="guardarEstado()">💾 backup</button>
     <button class="btn" style="padding:5px 12px;font-size:11px;color:#6A9EC4;border-color:#6A9EC4" onclick="$('cargar-inp').click()">📂 restaurar</button>
     <input type="file" id="cargar-inp" accept=".json" style="display:none" onchange="cargarEstado(event)">
@@ -2825,26 +2837,10 @@ function exportarCSV() {
 
 // ─── FIREBASE SYNC ───
 let _fbDebounce = null;
-let _applying = false;
-window._cancelFbDebounce = () => { clearTimeout(_fbDebounce); _fbDebounce = null; };
+window._applying = false; // usar window. para que el módulo Firebase pueda leerlo
 
-// Firebase llama esto cuando llegan cambios de otro usuario
-window._fbApply = function(data) {
-  if (_applying) return; // somos nosotros guardando — ignorar echo
-  _applying = true;
-  aplicarEstado(data);
-  setTimeout(() => {
-    _applying = false;
-    setSyncStatus('live');
-  }, 1000);
-};
-
-// Safety: liberar _applying si quedó trabado por más de 8 segundos
-setInterval(() => {
-  if (_applying) {
-    _applying = false;
-  }
-}, 8000);
+// Safety: si _applying queda trabado, liberarlo cada 6s
+setInterval(() => { window._applying = false; }, 6000);
 
 function setSyncStatus(state) {
   const dot = document.getElementById('sync-dot');
@@ -2906,10 +2902,10 @@ async function cargarDatosAnteriores() {
   if (banner) banner.remove();
 
   // Aplicar estado
-  _applying = true;
+  window._applying = true;
   aplicarEstado(data);
   await new Promise(r => setTimeout(r, 1200));
-  _applying = false;
+  window._applying = false;
 
   // Guardar en Firebase con la versión nueva
   setSyncStatus('saving');
@@ -2938,22 +2934,37 @@ async function descartarDatosAnteriores() {
   }
 }
 
+async function forzarSincronizacion() {
+  if (!window._fbForceSync) return;
+  const btn = document.querySelector('[onclick="forzarSincronizacion()"]');
+  if (btn) { btn.textContent = '⏳ enviando...'; btn.disabled = true; }
+  setSyncStatus('saving');
+  try {
+    await window._fbForceSync();
+    if (btn) { btn.textContent = '✓ enviado'; }
+    setSyncStatus('live');
+    setTimeout(() => {
+      if (btn) { btn.textContent = '🔄 sincronizar'; btn.disabled = false; }
+    }, 2000);
+  } catch(e) {
+    if (btn) { btn.textContent = '🔄 sincronizar'; btn.disabled = false; }
+    setSyncStatus('error');
+  }
+}
+
 function fbAutoSave() {
-  if (_applying) return;
+  if (window._applying) return;
   clearTimeout(_fbDebounce);
   _fbDebounce = setTimeout(async () => {
-    if (_applying) return;
+    if (window._applying) return;
     if (!window._fbSave) return;
-    _applying = true;
     setSyncStatus('saving');
     try {
       const estado = capturarEstado();
       await window._fbSave(estado);
-    } finally {
-      setTimeout(() => {
-        _applying = false;
-        setSyncStatus('live');
-      }, 800);
+      setSyncStatus('live');
+    } catch(e) {
+      setSyncStatus('error');
     }
   }, 1500);
 }
@@ -3112,16 +3123,13 @@ initResponsables();
 renderInv();
 updateAll();
 
-// Firebase: cargar estado guardado (getDoc) y luego arrancar listener en tiempo real
-// _appReady se setea dentro de _fbInit luego de la carga inicial
+// El onSnapshot de Firebase se encarga de la carga inicial y del tiempo real
+// Solo necesitamos marcar _appReady después de que el DOM esté listo
+// El onSnapshot ya está escuchando — cuando llegan los datos los aplica
 setTimeout(() => {
-  if (window._fbInit) {
-    window._fbInit();
-  } else {
-    window._appReady = true;
-    setSyncStatus('live');
-  }
-}, 500);
+  window._appReady = true;
+  setSyncStatus('live');
+}, 2000); // 2s para que onSnapshot haga la carga inicial primero
 </script>
 </body>
 </html>
