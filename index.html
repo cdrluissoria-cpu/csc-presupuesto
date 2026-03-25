@@ -1797,7 +1797,6 @@ function initEgresos() {
       if (e.subs) {
         const subgid = `sub-${e.id}`;
         const refTotal = e.ref;
-        // Distribuir ref inicialmente solo en Colegio
         const subRef = {col: refTotal, est: 0, can: 0, uni: 0};
         return `
         <tr class="acc-item hidden" data-group="${gid}" style="background:var(--surface2)">
@@ -1806,9 +1805,16 @@ function initEgresos() {
               <tr onclick="toggleSub('${subgid}')" style="cursor:pointer">
                 <td style="padding:6px 28px;font-size:12.5px;width:40%">
                   <i class="toggle-icon" id="${subgid}-icon" style="display:inline-block;width:14px;font-size:10px;transition:transform .15s;font-style:normal;margin-right:4px">▶</i>
-                  <span style="font-size:10px;color:var(--text3);margin-right:6px;font-family:'DM Mono',monospace">${e.cod}</span>${e.label}
+                  <span id="${e.id}-cod-disp" style="font-size:10px;color:var(--text3);margin-right:6px;font-family:'DM Mono',monospace;cursor:text;border-bottom:1px dashed transparent" onmouseenter="this.style.borderColor='var(--text3)'" onmouseleave="this.style.borderColor='transparent'" onclick="event.stopPropagation();editCampoEgr('${e.id}','cod')">${e.cod}</span>
+                  <input id="${e.id}-cod-inp" value="${e.cod}" style="display:none;width:60px;padding:2px 4px;border:1px solid var(--border2);border-radius:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)" onblur="cerrarCampoEgr('${e.id}','cod',true)" onclick="event.stopPropagation()">
+                  <span id="${e.id}-lbl-disp" style="cursor:text;border-bottom:1px dashed transparent" onmouseenter="this.style.borderColor='var(--text2)'" onmouseleave="this.style.borderColor='transparent'" onclick="event.stopPropagation();editCampoEgr('${e.id}','lbl')">${e.label}</span>
+                  <input id="${e.id}-lbl-inp" value="${e.label}" style="display:none;width:180px;padding:2px 4px;border:1px solid var(--border2);border-radius:4px;font-family:'DM Mono',monospace;font-size:12.5px" onblur="cerrarCampoEgr('${e.id}','lbl',true)" onclick="event.stopPropagation()">
                 </td>
-                <td style="padding:6px 12px;text-align:right;font-size:12px;color:var(--text3)">Ref: ${fmt(refTotal)}</td>
+                <td style="padding:6px 12px;text-align:right;font-size:12px;color:var(--text3)" onclick="event.stopPropagation()">
+                  <span id="${e.id}-ref-disp" style="cursor:text;color:var(--text3);font-size:12px;border-bottom:1px dashed transparent" onmouseenter="this.style.borderColor='var(--text3)'" onmouseleave="this.style.borderColor='transparent'" onclick="editRef511('${e.id}')">${fmt(refTotal)}</span>
+                  <input type="number" id="${e.id}-ref-inp" value="${refTotal}" style="display:none;width:130px;text-align:right;padding:3px 6px;border:1px solid var(--border2);border-radius:4px;font-family:'DM Mono',monospace;font-size:12px"
+                    onblur="cerrarRef511('${e.id}')" oninput="calcEgresos()">
+                </td>
                 <td style="padding:6px 12px;text-align:right;font-size:12px;color:var(--text3)"></td>
                 <td style="padding:6px 12px;text-align:right;font-weight:500" id="${e.id}-disp-tot">—</td>
                 <td style="padding:6px 12px;text-align:right" id="${e.id}-v">—</td>
@@ -1832,9 +1838,14 @@ function initEgresos() {
       // ── Cuenta normal ──
       return `
       <tr class="acc-item hidden" data-group="${gid}">
-        <td><span style="font-size:10px;color:var(--text3);margin-right:6px;font-family:'DM Mono',monospace">${e.cod}</span>${e.label}</td>
+        <td>
+          <span id="${e.id}-cod-disp" style="font-size:10px;color:var(--text3);margin-right:6px;font-family:'DM Mono',monospace;cursor:text;border-bottom:1px dashed transparent" onmouseenter="this.style.borderColor='var(--text3)'" onmouseleave="this.style.borderColor='transparent'" onclick="event.stopPropagation();editCampoEgr('${e.id}','cod')">${e.cod}</span>
+          <input id="${e.id}-cod-inp" value="${e.cod}" style="display:none;width:60px;padding:2px 4px;border:1px solid var(--border2);border-radius:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)" onblur="cerrarCampoEgr('${e.id}','cod',false)" onclick="event.stopPropagation()">
+          <span id="${e.id}-lbl-disp" style="cursor:text;border-bottom:1px dashed transparent" onmouseenter="this.style.borderColor='var(--text2)'" onmouseleave="this.style.borderColor='transparent'" onclick="event.stopPropagation();editCampoEgr('${e.id}','lbl')">${e.label}</span>
+          <input id="${e.id}-lbl-inp" value="${e.label}" style="display:none;width:180px;padding:2px 4px;border:1px solid var(--border2);border-radius:4px;font-family:'DM Mono',monospace;font-size:12.5px" onblur="cerrarCampoEgr('${e.id}','lbl',false)" onclick="event.stopPropagation()">
+        </td>
         <td class="r">
-          <span id="${e.id}-ref-disp" style="cursor:text;font-size:12px;color:var(--text3)" onclick="event.stopPropagation();editRef('${e.id}')">${fmt(e.ref)}</span>
+          <span id="${e.id}-ref-disp" style="cursor:text;font-size:12px;color:var(--text3);border-bottom:1px dashed transparent" onmouseenter="this.style.borderColor='var(--text3)'" onmouseleave="this.style.borderColor='transparent'" onclick="event.stopPropagation();editRef('${e.id}')">${fmt(e.ref)}</span>
           <input type="number" id="${e.id}-ref-inp" value="${e.ref}" style="display:none;width:130px;text-align:right;padding:3px 6px;border:1px solid var(--border2);border-radius:4px;font-family:'DM Mono',monospace;font-size:12px" onblur="cerrarRef('${e.id}')" oninput="calcEgresos()">
         </td>
         <td class="r">
@@ -1967,8 +1978,51 @@ function cerrarRef(eid) {
   const disp=$(eid+'-ref-disp'), inp=$(eid+'-ref-inp');
   if (!disp||!inp) return;
   const v = parseFloat(inp.value)||0;
-  // update the live ref value in egrData
   const e = egrData.find(x=>x.id===eid);
+  if (e) e.ref = v;
+  disp.textContent = fmt(v);
+  inp.style.display='none'; disp.style.display='inline';
+  calcEgresos();
+}
+
+// ── Editar label y código de cualquier cuenta de egresos ──
+function editCampoEgr(eid, campo) {
+  const disp = $(`${eid}-${campo}-disp`), inp = $(`${eid}-${campo}-inp`);
+  if (!disp || !inp) return;
+  disp.style.display = 'none';
+  inp.style.display = 'inline-block';
+  inp.focus(); inp.select();
+}
+
+function cerrarCampoEgr(eid, campo, isSubs) {
+  const disp = $(`${eid}-${campo}-disp`), inp = $(`${eid}-${campo}-inp`);
+  if (!disp || !inp) return;
+  const val = inp.value.trim();
+  disp.textContent = val;
+  inp.style.display = 'none';
+  disp.style.display = 'inline';
+  // Actualizar en el array de datos
+  const arr = isSubs ? egrGroups[0].items : egrData;
+  const e = arr.find(x => x.id === eid);
+  if (e) {
+    if (campo === 'cod') e.cod = val;
+    if (campo === 'lbl') e.label = val;
+  }
+  fbAutoSave();
+}
+
+// ── Ref editable para cuentas 511 (subs:true) ──
+function editRef511(eid) {
+  const disp = $(eid+'-ref-disp'), inp = $(eid+'-ref-inp');
+  if (!disp||!inp) return;
+  disp.style.display='none'; inp.style.display='inline-block'; inp.focus(); inp.select();
+}
+function cerrarRef511(eid) {
+  const disp=$(eid+'-ref-disp'), inp=$(eid+'-ref-inp');
+  if (!disp||!inp) return;
+  const v = parseFloat(inp.value)||0;
+  // Actualizar ref en egrGroups[0] para que los cálculos lo usen
+  const e = egrGroups[0].items.find(x=>x.id===eid);
   if (e) e.ref = v;
   disp.textContent = fmt(v);
   inp.style.display='none'; disp.style.display='inline';
@@ -3001,6 +3055,15 @@ function capturarEstado() {
   estado.recExtras = JSON.parse(JSON.stringify(recExtras));
   estado.egrExtras = JSON.parse(JSON.stringify(egrExtras));
   estado._customSeq = _customSeq;
+  // Guardar refs, labels y códigos editables de todas las cuentas de egresos
+  estado.egrLabels = {};
+  egrData.forEach(e => {
+    estado.egrLabels[e.id] = { cod: e.cod, label: e.label };
+  });
+  estado.refs511 = {};
+  egrGroups[0].items.filter(e=>e.subs).forEach(e => {
+    estado.refs511[e.id] = e.ref;
+  });
   return estado;
 }
 
@@ -3084,6 +3147,26 @@ function aplicarEstado(estado) {
 
   // 10. uerVals
   if (estado.uerVals) Object.assign(uerVals, estado.uerVals);
+
+  // 10b. Restaurar labels, códigos y refs de cuentas de egresos
+  if (estado.egrLabels) {
+    egrData.forEach(e => {
+      const saved = estado.egrLabels[e.id];
+      if (!saved) return;
+      if (saved.cod)   { e.cod   = saved.cod;   const d=$(e.id+'-cod-disp'), i=$(e.id+'-cod-inp'); if(d)d.textContent=saved.cod; if(i)i.value=saved.cod; }
+      if (saved.label) { e.label = saved.label;  const d=$(e.id+'-lbl-disp'), i=$(e.id+'-lbl-inp'); if(d)d.textContent=saved.label; if(i)i.value=saved.label; }
+    });
+  }
+  if (estado.refs511) {
+    egrGroups[0].items.filter(e=>e.subs).forEach(e => {
+      if (estado.refs511[e.id] !== undefined) {
+        e.ref = estado.refs511[e.id];
+        const disp = $(e.id+'-ref-disp'), inp = $(e.id+'-ref-inp');
+        if (disp) disp.textContent = fmt(e.ref);
+        if (inp)  inp.value = e.ref;
+      }
+    });
+  }
 
   // 11. Responsables
   if (estado.responsables) {
