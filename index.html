@@ -902,12 +902,18 @@ tr.acc-subtotal td {
         <div id="resp-recursos-wrap"></div>
       </div>
       <p class="page-sub">Hacé clic en cada rubro para expandir las cuentas. Las mensualidades y matrículas se sincronizan desde Cuotas.</p>
+      <div class="inc-bar">
+        <span>Incremento general:</span>
+        <input type="number" id="inc-rec" value="30">
+        <span>%</span>
+        <button class="btn" style="margin-left:8px;border-color:#DDCB8A;color:var(--warn);font-size:11px;padding:5px 12px" onclick="aplicarIncRecursos()">aplicar a todos</button>
+      </div>
       <div class="section">
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th style="width:44%">Concepto</th><th class="r">Importe Mensual</th><th class="r">Meses</th><th class="r">Total Anual</th>
+                <th style="width:36%">Concepto</th><th class="r">Referencia</th><th class="r">% Inc.</th><th class="r">Importe Mensual</th><th class="r">Meses</th><th class="r">Total Anual</th><th class="r">Variación</th>
               </tr>
             </thead>
             <tbody id="rec-body"></tbody>
@@ -1430,38 +1436,39 @@ function getMatriculas() {
 // Grupos para renderizar encabezados de sección en la tabla
 const recGroups = [
   { titulo: '411 · Recursos por Aporte Estatal', items: [
-    {id:'r-apest',    cod:'411001', label:'Aportes Estatales',                         men:77000000, ms:12, auto:false},
+    {id:'r-apest',    cod:'411001', label:'Aportes Estatales',                         men:77000000, ms:12, auto:false, ref:932771003},
   ]},
   { titulo: '412 · Recursos Ordinarios — Aranceles', items: [
-    {id:'r-mens',     cod:'412001', label:'Mensualidades (auto · desde Cuotas)',        men:0,        ms:1,  auto:'mens'},
-    {id:'r-matr',     cod:'412002', label:'Matrículas (auto · 2× cuota Dic)',           men:0,        ms:1,  auto:'matr'},
-    {id:'r-beca',     cod:'412018', label:'Descuentos por Becas (deducción)',           men:0,        ms:1,  auto:'beca'},
-    {id:'r-incob',    cod:'412003', label:'Recupero Incobrables',                       men:100000,   ms:1,  auto:false, total:true},
+    {id:'r-mens',     cod:'412001', label:'Mensualidades (auto · desde Cuotas)',        men:0,        ms:1,  auto:'mens', ref:0},
+    {id:'r-matr',     cod:'412002', label:'Matrículas (auto · 2× cuota Dic)',           men:0,        ms:1,  auto:'matr', ref:0},
+    {id:'r-beca',     cod:'412018', label:'Descuentos por Becas (deducción)',           men:0,        ms:1,  auto:'beca', ref:0},
+    {id:'r-incob',    cod:'412003', label:'Recupero Incobrables',                       men:100000,   ms:1,  auto:false, total:true, ref:907670},
   ]},
   { titulo: '413 · Recursos Ordinarios Otros', items: [
-    {id:'r-reint',    cod:'413001', label:'Reintegro Gastos Adm. y Comisiones',         men:3200000,  ms:10, auto:false},
-    {id:'r-seguros',  cod:'413002', label:'Reintegro Seguros (Escolar / ART)',          men:5000000,  ms:10, auto:false},
-    {id:'r-act-edu',  cod:'413005', label:'Actividades y Salidas Educativas Ingreso',   men:3200000,  ms:10, auto:false},
-    {id:'r-dep',      cod:'413006', label:'Escuelas Deportivas y Recreativas',          men:5500000,  ms:10, auto:false},
-    {id:'r-ext-hor',  cod:'413007', label:'Extensión Horaria',                          men:250000,   ms:10, auto:false},
-    {id:'r-mat-ini',  cod:'413008', label:'Material Nivel Inicial',                     men:2200000,  ms:10, auto:false},
-    {id:'r-otros-a1', cod:'413010', label:'Otros Aranceles',                            men:400000,   ms:10, auto:false},
-    {id:'r-ingles',   cod:'413011', label:'Otros Aranceles Inglés',                     men:1300000,  ms:10, auto:false},
+    {id:'r-reint',    cod:'413001', label:'Reintegro Gastos Adm. y Comisiones',         men:3200000,  ms:10, auto:false, ref:30540094},
+    {id:'r-seguros',  cod:'413002', label:'Reintegro Seguros (Escolar / ART)',          men:5000000,  ms:10, auto:false, ref:45206963},
+    {id:'r-act-edu',  cod:'413005', label:'Actividades y Salidas Educativas Ingreso',   men:3200000,  ms:10, auto:false, ref:30773899},
+    {id:'r-dep',      cod:'413006', label:'Escuelas Deportivas y Recreativas',          men:5500000,  ms:10, auto:false, ref:51440342},
+    {id:'r-ext-hor',  cod:'413007', label:'Extensión Horaria',                          men:250000,   ms:10, auto:false, ref:2374900},
+    {id:'r-mat-ini',  cod:'413008', label:'Material Nivel Inicial',                     men:2200000,  ms:10, auto:false, ref:21024502},
+    {id:'r-otros-a1', cod:'413010', label:'Otros Aranceles',                            men:400000,   ms:10, auto:false, ref:3813760},
+    {id:'r-ingles',   cod:'413011', label:'Otros Aranceles Inglés',                     men:1300000,  ms:10, auto:false, ref:12051600},
   ]},
   { titulo: '414 · Recursos por Otras Actividades Especiales', items: [
-    {id:'r-alq',      cod:'414003', label:'Alquiler Espacios Colegio',                  men:130000,   ms:10, auto:false},
-    {id:'r-est-ing',  cod:'414004', label:'Vta. Estacionamiento',                       men:7500000,  ms:10, auto:false},
-    {id:'r-uni-ing',  cod:'414005', label:'Vta. Uniformes',                             men:13000000, ms:12, auto:false},
-    {id:'r-lib-ing',  cod:'414006', label:'Vta. Librería',                              men:1700000,  ms:10, auto:false},
-    {id:'r-tarj',     cod:'414013', label:'Recupero Gastos Tarjetas de Crédito',        men:700000,   ms:10, auto:false},
-    {id:'r-can-ing',  cod:'414014', label:'Vta. Cantina',                               men:17000000, ms:10, auto:false},  ]},
+    {id:'r-alq',      cod:'414003', label:'Alquiler Espacios Colegio',                  men:130000,   ms:10, auto:false, ref:1189440},
+    {id:'r-est-ing',  cod:'414004', label:'Vta. Estacionamiento',                       men:7500000,  ms:10, auto:false, ref:71340423},
+    {id:'r-uni-ing',  cod:'414005', label:'Vta. Uniformes',                             men:13000000, ms:12, auto:false, ref:136887500},
+    {id:'r-lib-ing',  cod:'414006', label:'Vta. Librería',                              men:1700000,  ms:10, auto:false, ref:16347684},
+    {id:'r-tarj',     cod:'414013', label:'Recupero Gastos Tarjetas de Crédito',        men:700000,   ms:10, auto:false, ref:6351383},
+    {id:'r-can-ing',  cod:'414014', label:'Vta. Cantina',                               men:17000000, ms:10, auto:false, ref:151962265},
+  ]},
   { titulo: '415 · Ingresos Financieros', items: [
-    {id:'r-int',      cod:'415001', label:'Intereses y Rendimiento de Inversiones',     men:8000000,  ms:12, auto:false},
-    {id:'r-mora',     cod:'415002', label:'Recargos por Mora',                          men:4000000,  ms:12, auto:false},
-    {id:'r-dif-cot',  cod:'415003', label:'Diferencias de Cotizaciones',                men:900000,   ms:12, auto:false},
+    {id:'r-int',      cod:'415001', label:'Intereses y Rendimiento de Inversiones',     men:8000000,  ms:12, auto:false, ref:75205217},
+    {id:'r-mora',     cod:'415002', label:'Recargos por Mora',                          men:4000000,  ms:12, auto:false, ref:38064559},
+    {id:'r-dif-cot',  cod:'415003', label:'Diferencias de Cotizaciones',                men:900000,   ms:12, auto:false, ref:8203888},
   ]},
   { titulo: '421 · Recursos Extraordinarios', items: [
-    {id:'r-sob-caja', cod:'421001', label:'Sobrante de Caja',                           men:10000,    ms:1,  auto:false, total:true},
+    {id:'r-sob-caja', cod:'421001', label:'Sobrante de Caja',                           men:10000,    ms:1,  auto:false, total:true, ref:98689},
   ]},
 ];
 // Aplanar para las funciones que necesitan lista plana
@@ -1488,7 +1495,7 @@ function initRecursos() {
     const gid = 'rg-' + gi;
     // No renderizar el grupo 511 items con subs desde acá (ese es solo egresos)
     html += `<tr class="acc-group" data-group="${gid}" onclick="toggleAcc('${gid}')">
-      <td colspan="4"><i class="toggle-icon">▶</i>${g.titulo}<span id="${gid}-sub" style="float:right;font-weight:400;font-size:11px;opacity:.7">—</span></td>
+      <td colspan="7"><i class="toggle-icon">▶</i>${g.titulo}<span id="${gid}-sub" style="float:right;font-weight:400;font-size:11px;opacity:.7">—</span></td>
     </tr>`;
     html += g.items.map((r, ri) => renderRecRow(r, gid, gi, ri)).join('');
     // Filas extras del usuario
@@ -1497,7 +1504,7 @@ function initRecursos() {
     // Botón agregar cuenta
     const canAdd = !g.items.some(r => r.auto); // no agregar en grupos auto
     html += `<tr class="acc-item hidden" data-group="${gid}">
-      <td colspan="4" style="padding:4px 16px">
+      <td colspan="7" style="padding:4px 16px">
         <button onclick="event.stopPropagation();addRecExtra(${gi})" style="font-size:11px;color:var(--accent);background:none;border:1px dashed var(--accent);border-radius:4px;padding:3px 10px;cursor:pointer">+ agregar cuenta</button>
       </td>
     </tr>`;
@@ -1507,24 +1514,47 @@ function initRecursos() {
 }
 
 function renderRecRow(r, gid, gi, ri) {
+  const refVal = r.ref || 0;
+  const isAuto = r.auto;
   return `<tr class="acc-item hidden" data-group="${gid}">
     <td>
-      <span style="font-size:10px;color:var(--text3);margin-right:6px;font-family:'DM Mono',monospace">${r.cod}</span>${r.label}
+      <span id="${r.id}-cod-disp" style="font-size:10px;color:var(--text3);margin-right:6px;font-family:'DM Mono',monospace;cursor:text;border-bottom:1px dashed transparent" onmouseenter="this.style.borderColor='var(--text3)'" onmouseleave="this.style.borderColor='transparent'" onclick="event.stopPropagation();editCampoRec('${r.id}','cod')">${r.cod}</span>
+      <input id="${r.id}-cod-inp" value="${r.cod}" style="display:none;width:60px;padding:2px 4px;border:1px solid var(--border2);border-radius:4px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text3)" onblur="cerrarCampoRec('${r.id}','cod')" onclick="event.stopPropagation()">
+      <span id="${r.id}-lbl-disp" style="cursor:text;border-bottom:1px dashed transparent" onmouseenter="this.style.borderColor='var(--text2)'" onmouseleave="this.style.borderColor='transparent'" onclick="event.stopPropagation();editCampoRec('${r.id}','lbl')">${r.label}</span>
+      <input id="${r.id}-lbl-inp" value="${r.label}" style="display:none;width:200px;padding:2px 4px;border:1px solid var(--border2);border-radius:4px;font-family:'DM Mono',monospace;font-size:12.5px" onblur="cerrarCampoRec('${r.id}','lbl')" onclick="event.stopPropagation()">
+    </td>
+    <td class="r" onclick="event.stopPropagation()">
+      ${isAuto
+        ? `<span style="color:var(--text3);font-size:12px">—</span>`
+        : `<span id="${r.id}-ref-disp" style="cursor:text;font-size:12px;color:var(--text3);border-bottom:1px dashed transparent" onmouseenter="this.style.borderColor='var(--text3)'" onmouseleave="this.style.borderColor='transparent'" onclick="editRefRec('${r.id}')">${fmt(refVal)}</span>
+           <input type="number" id="${r.id}-ref-inp" value="${refVal}" style="display:none;width:130px;text-align:right;padding:3px 6px;border:1px solid var(--border2);border-radius:4px;font-family:'DM Mono',monospace;font-size:12px" onblur="cerrarRefRec('${r.id}')" oninput="calcRecursos()">`
+      }
     </td>
     <td class="r">
-      ${r.auto
+      ${isAuto
+        ? `<span style="color:var(--text3);font-size:12px">—</span>`
+        : `<div style="display:flex;align-items:center;gap:4px;justify-content:flex-end">
+             <input type="number" id="${r.id}-pct" placeholder="—" style="width:60px;text-align:right;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:12px;background:var(--bg);color:var(--warn)" oninput="aplicarPctRec('${r.id}')">
+             <span style="font-size:11px;color:var(--text3)">%</span>
+           </div>`
+      }
+    </td>
+    <td class="r">
+      ${isAuto
         ? `<span id="${r.id}-disp" style="color:var(--text3);font-size:12.5px">—</span><input type="hidden" id="${r.id}-m" value="${r.men}">`
         : `<span id="${r.id}-disp" style="cursor:text;font-size:12.5px" onclick="event.stopPropagation();editarMensual('${r.id}')">$ ${r.men.toLocaleString('es-AR')}</span>
            <input type="number" id="${r.id}-m" value="${r.men}" style="display:none;width:130px;text-align:right;padding:4px 6px;border:1px solid var(--border2);border-radius:4px;font-family:'DM Mono',monospace;font-size:12.5px"
-             onblur="cerrarMensual('${r.id}')" oninput="calcRecursos()">`
+             onblur="cerrarMensual('${r.id}')" oninput="clearPctRec('${r.id}');calcRecursos()">`
       }
     </td>
     <td class="r"><input type="number" id="${r.id}-ms" value="${r.ms}" ${r.auto?'readonly style="color:var(--text3);background:var(--surface2)"':''} oninput="calcRecursos()" style="width:50px"></td>
     <td class="r" id="${r.id}-tot" style="font-weight:500">—</td>
+    <td class="r" id="${r.id}-v">—</td>
   </tr>`;
 }
 
 function renderRecExtraRow(r, gid, gi, ei) {
+  const refV = r.ref || 0;
   return `<tr class="acc-item hidden" data-group="${gid}" style="background:var(--surface)">
     <td style="padding:4px 8px 4px 28px">
       <input value="${r.cod}" placeholder="Nº cuenta" oninput="recExtras[${gi}][${ei}].cod=this.value"
@@ -1532,6 +1562,8 @@ function renderRecExtraRow(r, gid, gi, ei) {
       <input value="${r.label}" placeholder="Descripción de la cuenta" oninput="recExtras[${gi}][${ei}].label=this.value;calcRecursos()"
         style="width:200px;font-size:12.5px;border:none;border-bottom:1px solid var(--border2);background:transparent;padding:2px 4px">
     </td>
+    <td class="r"><input type="number" id="${r.id}-ref-inp" value="${refV}" placeholder="Ref" style="width:110px;text-align:right;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:12px;color:var(--text3)" oninput="recExtras[${gi}][${ei}].ref=+this.value;calcRecursos()"></td>
+    <td class="r"><input type="number" id="${r.id}-pct" placeholder="—" style="width:60px;text-align:right;padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;font-size:12px;background:var(--bg);color:var(--warn)" oninput="aplicarPctRec('${r.id}','extra',${gi},${ei})"></td>
     <td class="r">
       <span id="${r.id}-disp" style="cursor:text;font-size:12.5px" onclick="event.stopPropagation();editarMensual('${r.id}')">$ ${(r.men||0).toLocaleString('es-AR')}</span>
       <input type="number" id="${r.id}-m" value="${r.men||0}" style="display:none;width:130px;text-align:right;padding:4px 6px;border:1px solid var(--border2);border-radius:4px;font-family:'DM Mono',monospace;font-size:12.5px"
@@ -1544,6 +1576,7 @@ function renderRecExtraRow(r, gid, gi, ei) {
       <button onclick="event.stopPropagation();moveRecExtra(${gi},${ei},1)" style="border:none;background:none;cursor:pointer;color:var(--text3);padding:0 3px" title="Bajar">↓</button>
       <button onclick="event.stopPropagation();delRecExtra(${gi},${ei})" style="border:none;background:none;cursor:pointer;color:var(--danger);padding:0 3px" title="Eliminar">✕</button>
     </td>
+    <td class="r" id="${r.id}-v">—</td>
   </tr>`;
 }
 
@@ -1571,6 +1604,62 @@ function moveRecExtra(gi, ei, dir) {
   if(hdr&&!hdr.classList.contains('open')){hdr.classList.add('open');document.querySelectorAll(`.acc-item[data-group="${gid}"]`).forEach(r=>r.classList.remove('hidden'));}
 }
 
+// ── Editar ref de recursos ──
+function editRefRec(rid) {
+  const disp=$(rid+'-ref-disp'), inp=$(rid+'-ref-inp');
+  if(!disp||!inp) return;
+  disp.style.display='none'; inp.style.display='inline-block'; inp.focus(); inp.select();
+}
+function cerrarRefRec(rid) {
+  const disp=$(rid+'-ref-disp'), inp=$(rid+'-ref-inp');
+  if(!disp||!inp) return;
+  const v = parseFloat(inp.value)||0;
+  const r = recData.find(x=>x.id===rid);
+  if(r) r.ref = v;
+  disp.textContent = fmt(v);
+  inp.style.display='none'; disp.style.display='inline';
+  calcRecursos();
+}
+
+// ── Editar label/cod de recursos ──
+function editCampoRec(rid, campo) {
+  const disp=$(rid+'-'+campo+'-disp'), inp=$(rid+'-'+campo+'-inp');
+  if(!disp||!inp) return;
+  disp.style.display='none'; inp.style.display='inline-block'; inp.focus(); inp.select();
+}
+function cerrarCampoRec(rid, campo) {
+  const disp=$(rid+'-'+campo+'-disp'), inp=$(rid+'-'+campo+'-inp');
+  if(!disp||!inp) return;
+  const val = inp.value.trim();
+  disp.textContent = val;
+  inp.style.display='none'; disp.style.display='inline';
+  const r = recData.find(x=>x.id===rid);
+  if(r) { if(campo==='cod') r.cod=val; if(campo==='lbl') r.label=val; }
+  fbAutoSave();
+}
+
+// ── Aplicar % de incremento a recursos ──
+function aplicarPctRec(rid) {
+  const pctEl=$(rid+'-pct'), disp=$(rid+'-disp'), inp=$(rid+'-m');
+  if(!pctEl||!inp) return;
+  const p = parseFloat(pctEl.value);
+  if(isNaN(p)) return;
+  const r = recData.find(x=>x.id===rid);
+  const refInp = $(rid+'-ref-inp');
+  const refV = refInp ? (parseFloat(refInp.value)||0) : (r?.ref||0);
+  const ms = num(rid+'-ms') || 1;
+  if(ms > 0 && refV > 0) {
+    const newTotal = Math.round(refV * (1 + p/100));
+    const newMen   = Math.round(newTotal / ms);
+    inp.value = newMen;
+    if(disp) disp.textContent = '$ ' + newMen.toLocaleString('es-AR');
+  }
+  calcRecursos();
+}
+function clearPctRec(rid) {
+  const pctEl=$(rid+'-pct'); if(pctEl) pctEl.value='';
+}
+
 function editarMensual(rid) {
   const disp = $(rid+'-disp'), inp = $(rid+'-m');
   if (!disp || !inp) return;
@@ -1587,6 +1676,32 @@ function cerrarMensual(rid) {
   inp.style.display = 'none';
   disp.style.display = 'inline';
   calcRecursos();
+}
+
+function aplicarIncRecursos() {
+  const inc = 1 + num('inc-rec')/100;
+  recGroups.forEach(g => {
+    g.items.forEach(r => {
+      if (r.auto) return; // mensualidades/matrículas/becas no se tocan
+      const refInp = $(r.id+'-ref-inp');
+      const refV = refInp ? (parseFloat(refInp.value)||r.ref||0) : (r.ref||0);
+      if (refV <= 0) return;
+      const ms = num(r.id+'-ms') || 1;
+      const newTotal = Math.round(refV * inc);
+      const newMen   = r.total ? newTotal : Math.round(newTotal / ms);
+      const inp = $(r.id+'-m'), disp = $(r.id+'-disp'), pct = $(r.id+'-pct');
+      if (inp) inp.value = newMen;
+      if (disp) disp.textContent = '$ ' + newMen.toLocaleString('es-AR');
+      if (pct) pct.value = num('inc-rec');
+    });
+  });
+  calcRecursos();
+}
+
+function getRefRec(r) {
+  // Leer ref desde el input visible — garantiza consistencia con la UI
+  const inp = $(r.id+'-ref-inp');
+  return inp ? (parseFloat(inp.value)||r.ref||0) : (r.ref||0);
 }
 
 function calcRecursos() {
@@ -1620,6 +1735,18 @@ function calcRecursos() {
       groupTotal += val; total += val;
       const tel = $(r.id+'-tot');
       if (tel) { tel.textContent = fmt(val); tel.style.color = val < 0 ? 'var(--danger)' : ''; }
+      // Variación vs referencia
+      if (!r.auto) {
+        const refV = getRefRec(r);
+        const vEl = $(r.id+'-v');
+        if (vEl && refV > 0) {
+          const p = Math.round((val - refV) / refV * 100);
+          const cl = p > 50 ? 'badge-bad' : (p > 20 ? 'badge-warn' : 'badge-ok');
+          vEl.innerHTML = `<span class="badge ${cl}">${p>=0?'+':''}${p}%</span>`;
+        } else if (vEl) {
+          vEl.innerHTML = '<span class="badge badge-ok">+0%</span>';
+        }
+      }
     });
     // Cuentas extras del usuario
     (recExtras[gi]||[]).forEach(r => {
@@ -1627,6 +1754,14 @@ function calcRecursos() {
       const disp=$(r.id+'-disp'), inp=$(r.id+'-m');
       if(disp&&inp&&inp.style.display==='none') disp.textContent='$ '+Math.round(val/(num(r.id+'-ms')||1)).toLocaleString('es-AR');
       const tel=$(r.id+'-tot'); if(tel) tel.textContent=fmt(val);
+      // Variación extras
+      const refExtra = parseFloat($(r.id+'-ref-inp')?.value)||r.ref||0;
+      const vEl=$(r.id+'-v');
+      if(vEl && refExtra > 0) {
+        const p = Math.round((val - refExtra) / refExtra * 100);
+        const cl = p > 50 ? 'badge-bad' : (p > 20 ? 'badge-warn' : 'badge-ok');
+        vEl.innerHTML = `<span class="badge ${cl}">${p>=0?'+':''}${p}%</span>`;
+      }
       groupTotal += val; total += val;
     });
     const gid = 'rg-' + gi;
@@ -3070,6 +3205,16 @@ function capturarEstado() {
   estado.recExtras = JSON.parse(JSON.stringify(recExtras));
   estado.egrExtras = JSON.parse(JSON.stringify(egrExtras));
   estado._customSeq = _customSeq;
+  // Guardar labels, códigos y refs de cuentas de recursos
+  estado.recLabels = {};
+  recData.forEach(r => {
+    const refInp = $(r.id+'-ref-inp');
+    estado.recLabels[r.id] = {
+      cod:   r.cod,
+      label: r.label,
+      ref:   refInp ? (parseFloat(refInp.value)||r.ref||0) : (r.ref||0)
+    };
+  });
   // Guardar refs, labels y códigos editables de todas las cuentas de egresos
   estado.egrLabels = {};
   egrData.forEach(e => {
@@ -3163,6 +3308,16 @@ function aplicarEstado(estado) {
   // 10. uerVals
   if (estado.uerVals) Object.assign(uerVals, estado.uerVals);
 
+  // 10b-rec. Restaurar labels, códigos y refs de cuentas de recursos
+  if (estado.recLabels) {
+    recData.forEach(r => {
+      const saved = estado.recLabels[r.id];
+      if (!saved) return;
+      if (saved.cod !== undefined)   { r.cod   = saved.cod;   const d=$(r.id+'-cod-disp'), i=$(r.id+'-cod-inp'); if(d)d.textContent=saved.cod; if(i)i.value=saved.cod; }
+      if (saved.label !== undefined) { r.label = saved.label; const d=$(r.id+'-lbl-disp'), i=$(r.id+'-lbl-inp'); if(d)d.textContent=saved.label; if(i)i.value=saved.label; }
+      if (saved.ref !== undefined)   { r.ref   = saved.ref;   const d=$(r.id+'-ref-disp'), i=$(r.id+'-ref-inp'); if(d)d.textContent=fmt(saved.ref); if(i)i.value=saved.ref; }
+    });
+  }
   // 10b. Restaurar labels, códigos y refs de cuentas de egresos
   if (estado.egrLabels) {
     egrData.forEach(e => {
