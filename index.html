@@ -108,7 +108,7 @@
   --surface2: #F0EDE6;
   --border: #DDD9CF;
   --border2: #C8C3B5;
-  --text: #1A1815;
+  --text: #6B4226;
   --text2: #6B6558;
   --text3: #A09B8E;
   --accent: #2D5A3D;
@@ -151,7 +151,7 @@ body {
 }
 .header span {
   font-size: 11px;
-  color: #9B9589;
+  color: rgba(255,255,255,0.75);
   letter-spacing: .06em;
 }
 .header-right {
@@ -160,7 +160,7 @@ body {
   align-items: center;
   gap: 10px;
   font-size: 12px;
-  color: #9B9589;
+  color: rgba(255,255,255,0.75);
 }
 .status-dot {
   width: 6px; height: 6px;
@@ -215,7 +215,9 @@ body {
   text-align: left;
 }
 .nav-item:hover { background: var(--surface2); color: var(--text); }
-.nav-item.active { background: var(--text); color: var(--bg); }
+.nav-item.active { background: var(--text); color: #fff !important; }
+.nav-item.active * { color: #fff !important; }
+.nav-item.active .icon { color: #fff !important; }
 .nav-item .icon {
   width: 16px; text-align: center;
   font-size: 13px; flex-shrink: 0;
@@ -574,7 +576,7 @@ tr.row-group td {
   input[type="hidden"] { display: none !important; }
 
   /* ── Layout base ── */
-  body { font-size: 11px; background: white !important; color: #1A1815 !important; }
+  body { font-size: 11px; background: white !important; color: #6B4226 !important; }
   .shell { display: block !important; }
   .main { padding: 0 !important; overflow: visible !important; }
   .header { position: static !important; padding: 8px 0 6px; margin-bottom: 4px; border-bottom: 1px solid #ccc; }
@@ -635,25 +637,25 @@ tr.row-group td {
   tr.acc-item.hidden { display: table-row !important; }
   tr.acc-item td { padding-left: 20px !important; }
   tr.acc-group { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  tr.acc-group td { background: #1A1815 !important; color: #F5F3EE !important; font-size: 9.5px !important; padding: 5px 10px !important; }
+  tr.acc-group td { background: #6B4226 !important; color: #F5F3EE !important; font-size: 9.5px !important; padding: 5px 10px !important; }
 
   /* ── Tablas generales ── */
   table { font-size: 10px; }
   thead th { font-size: 9px; padding: 4px 8px; border-bottom: 1px solid #ccc; }
   tbody td { padding: 4px 8px; border-bottom: 0.5px solid #eee; }
   tr.row-sub td { background: #F0EDE6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  tr.row-total td { background: #1A1815 !important; color: #F5F3EE !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  tr.row-total td { background: #6B4226 !important; color: #F5F3EE !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   /* ── Estado de Resultado (Unidades) ── */
   .er-table td { padding: 5px 10px; font-size: 10px; }
   .er-table .er-group { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #F0EDE6 !important; }
-  .er-table .er-total td { background: #1A1815 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .er-table .er-total td { background: #6B4226 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .er-table .er-sub td { background: #E4EDF5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .er-unit-title { font-size: 14px; margin: 8px 0 4px; }
 
   /* ── Resumen: líneas ── */
   .resumen-line { padding: 6px 12px; font-size: 11px; }
-  .resumen-line.total { background: #1A1815 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .resumen-line.total { background: #6B4226 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .resumen-line.subtot { background: #F0EDE6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   /* ── Notas: contenteditable como texto ── */
@@ -690,7 +692,7 @@ tr.acc-group {
   cursor: pointer;
   user-select: none;
 }
-tr.acc-group:hover td { background: #2a2724 !important; color: var(--bg) !important; }
+tr.acc-group:hover td { background: #7D5030 !important; color: var(--bg) !important; }
 tr.acc-group td {
   background: var(--text) !important;
   color: var(--bg) !important;
@@ -726,7 +728,7 @@ tr.acc-subtotal td {
 .er-table .er-pos { color: var(--accent); }
 .er-table .er-neg { color: var(--danger); }
 .er-table .er-sub td { background: var(--info-lt); font-weight: 500; }
-.er-table .er-total td { background: var(--text); color: var(--bg); font-weight: 500; font-size: 14px; }
+.er-table .er-total td { background: var(--text); color: #fff !important; font-weight: 600; font-size: 14px; }
 .er-unit-title { font-family: 'Fraunces', serif; font-size: 17px; font-weight: 300; margin: 20px 0 8px; color: var(--text); }
 </style>
 </head>
@@ -734,7 +736,7 @@ tr.acc-subtotal td {
 
 <div class="header">
   <div style="display:flex;flex-direction:column;gap:2px">
-    <div style="font-size:10px;color:#666;letter-spacing:.08em;text-transform:uppercase">Sistema de Gestión Presupuestaria · Colegios</div>
+    <div style="font-size:10px;color:rgba(255,255,255,0.75);letter-spacing:.08em;text-transform:uppercase">Sistema de Gestión Presupuestaria · Colegios</div>
     <h1 id="nombre-colegio-disp" style="cursor:text" onclick="editNombre()" title="Clic para editar">Colegio Sta. Catalina</h1>
     <input id="nombre-colegio-inp" type="text" value="Colegio Sta. Catalina" style="display:none;font-family:'Fraunces',serif;font-size:20px;font-weight:300;background:transparent;border:none;border-bottom:1px solid #666;color:var(--bg);outline:none;width:320px" onblur="cerrarNombre()" onkeydown="if(event.key==='Enter')this.blur()">
   </div>
@@ -742,7 +744,7 @@ tr.acc-subtotal td {
   <div class="header-right">
     <span class="status-dot"></span>
     <span id="last-saved" style="font-size:11px;color:var(--text3)">conectando...</span>
-    <span id="sync-status" style="font-size:11px;padding:3px 10px;border-radius:12px;background:#e8f5e9;color:#2e7d32;font-weight:500;display:inline-flex;align-items:center;gap:5px">
+    <span id="sync-status" style="font-size:11px;padding:3px 10px;border-radius:12px;background:rgba(255,255,255,0.15);color:#fff;font-weight:500;display:inline-flex;align-items:center;gap:5px">
       <span id="sync-dot" style="width:8px;height:8px;border-radius:50%;background:#4caf50;display:inline-block;animation:pulse-green 2s infinite"></span>
       <span id="sync-text">conectando...</span>
     </span>
@@ -2046,7 +2048,9 @@ function aplicarPctIndiv(eid) {
   if (!pctEl || !valEl) return;
   const p = parseFloat(pctEl.value);
   if (!isNaN(p)) {
-    const ref = egrData.find(e => e.id === eid)?.ref || 0;
+    // Usar siempre el ref visible en el input de referencia
+    const refInp = $(`${eid}-ref-inp`);
+    const ref = refInp ? (parseFloat(refInp.value) || 0) : (egrData.find(e => e.id === eid)?.ref || 0);
     const newVal = Math.round(ref * (1 + p / 100));
     valEl.value = newVal;
     if (dispEl) dispEl.textContent = fmt(newVal);
@@ -2082,7 +2086,10 @@ function aplicarInc() {
         const disp = $(`${e.id}-col-disp`); if(disp) disp.textContent = fmt(newVal);
       }
     } else {
-      const newVal = Math.round(e.ref * (e.tipo==='sal' ? iS : iG));
+      // Usar el ref visible en la UI, no el hardcodeado en e.ref
+      const refInp = $(`${e.id}-ref-inp`);
+      const refVal = refInp ? (parseFloat(refInp.value) || e.ref) : e.ref;
+      const newVal = Math.round(refVal * (e.tipo==='sal' ? iS : iG));
       const el = $(e.id); if (el) el.value = newVal;
       const dispEl = $(e.id+'-disp'); if (dispEl) dispEl.textContent = fmt(newVal);
       const pctEl = $(e.id+'-pct');
@@ -2092,38 +2099,46 @@ function aplicarInc() {
   calcEgresos();
 }
 
+function getRef(e) {
+  // Leer SIEMPRE el ref desde el input visible — garantiza consistencia con lo que muestra la UI
+  const inp = $(`${e.id}-ref-inp`);
+  return inp ? (parseFloat(inp.value) || e.ref) : e.ref;
+}
+
 function calcEgresos() {
   let total = 0;
   egrGroups.forEach((g, gi) => {
     let groupTotal = 0, groupRef = 0;
     g.items.forEach(e => {
       let v;
+      const refActual = getRef(e); // siempre usar el ref visible en la UI
       if (e.subs) {
         v = unidades511.reduce((s,u) => s + num(`${e.id}-${u.key}`), 0);
         const inp = $(e.id); if(inp) inp.value = v;
         const dispTot = $(`${e.id}-disp-tot`); if(dispTot) dispTot.textContent = fmt(v);
-        const p = parseFloat(pct(v, e.ref));
+        const p = parseFloat(pct(v, refActual));
         const cl = p > 50 ? 'badge-bad' : (p > 20 ? 'badge-warn' : 'badge-ok');
         const vEl = $(`${e.id}-v`); if(vEl) vEl.innerHTML = `<span class="badge ${cl}">${p>=0?'+':''}${isNaN(p)?'—':p+'%'}</span>`;
       } else {
         v = num(e.id);
-        const p = parseFloat(pct(v, e.ref));
+        const p = parseFloat(pct(v, refActual));
         const cl = p > 50 ? 'badge-bad' : (p > 20 ? 'badge-warn' : 'badge-ok');
         const el = $(e.id+'-v'); if (el) el.innerHTML = `<span class="badge ${cl}">${p>=0?'+':''}${isNaN(p)?'—':p+'%'}</span>`;
         const dispEl = $(e.id+'-disp'), inpEl = $(e.id);
         if (dispEl && inpEl && inpEl.style.display==='none') dispEl.textContent = fmt(v);
       }
-      groupTotal += v; groupRef += e.ref; total += v;
+      groupTotal += v; groupRef += refActual; total += v;
     });
     // Cuentas extras del usuario
     (egrExtras[gi]||[]).forEach(e => {
       const v = num(e.id);
-      const p = parseFloat(pct(v, e.ref||0));
+      const refExtra = parseFloat($(`${e.id}-ref-inp`)?.value) || e.ref || 0;
+      const p = parseFloat(pct(v, refExtra));
       const cl = p > 50 ? 'badge-bad' : (p > 20 ? 'badge-warn' : 'badge-ok');
       const vEl=$(e.id+'-v'); if(vEl) vEl.innerHTML=`<span class="badge ${cl}">${p>=0?'+':''}${isNaN(p)?'—':p+'%'}</span>`;
       const dispEl=$(e.id+'-disp'), inpEl=$(e.id);
       if(dispEl&&inpEl&&inpEl.style.display==='none') dispEl.textContent=fmt(v);
-      groupTotal += v; groupRef += (e.ref||0); total += v;
+      groupTotal += v; groupRef += refExtra; total += v;
     });
     const gid = 'eg-' + gi;
     const subEl=$(gid+'-sub'), totEl=$(gid+'-total'), refEl=$(gid+'-ref');
@@ -2275,12 +2290,12 @@ function calcUnidadesER() {
     u.gasIds.forEach(id => { const el=$('er-gv-'+id); if(el) el.textContent=fmt(-getEgrVal(id)); });
     const vb=$('er-vb-'+u.id); if(vb){vb.textContent=fmt(bruto);vb.style.color=bruto>=0?'var(--accent)':'var(--danger)';}
     const vge=$('er-vge-'+u.id); if(vge) vge.textContent=fmt(-gasExtra);
-    const vr=$('er-vr-'+u.id); if(vr){vr.textContent=fmt(resultado);vr.style.color=resultado>=0?'var(--accent)':'var(--danger)';}
+    const vr=$('er-vr-'+u.id); if(vr){vr.textContent=fmt(resultado);vr.style.color='#fff';}
     const vm=$('er-margen-'+u.id); if(vm) vm.textContent=margen+' %';
   });
   const ci=$('er-cons-ing'); if(ci){ci.textContent=fmt(globalIng);ci.style.color='var(--accent)';}
   const cg=$('er-cons-gas'); if(cg) cg.textContent=fmt(-globalGas);
-  const cr=$('er-cons-res'); if(cr){cr.textContent=fmt(globalIng-globalGas);cr.style.color=(globalIng-globalGas)>=0?'var(--accent)':'var(--danger)';}
+  const cr=$('er-cons-res'); if(cr){cr.textContent=fmt(globalIng-globalGas);cr.style.color='#fff';}
 }
 
 // Alias para compatibilidad con updateAll
@@ -2902,11 +2917,11 @@ function setSyncStatus(state) {
   const box = document.getElementById('sync-status');
   if (!dot || !txt || !box) return;
   if (state === 'live') {
-    box.style.background = '#e8f5e9'; box.style.color = '#2e7d32';
+    box.style.background = 'rgba(255,255,255,0.15)'; box.style.color = '#fff';
     dot.style.background = '#4caf50'; dot.style.animation = 'pulse-green 2s infinite';
     txt.textContent = 'en vivo';
   } else if (state === 'saving') {
-    box.style.background = '#fff8e1'; box.style.color = '#f57f17';
+    box.style.background = 'rgba(255,200,50,0.25)'; box.style.color = '#fff';
     dot.style.background = '#ffa726'; dot.style.animation = 'pulse-orange 1s infinite';
     txt.textContent = 'guardando...';
   } else if (state === 'connecting') {
