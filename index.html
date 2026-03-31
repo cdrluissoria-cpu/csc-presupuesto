@@ -562,8 +562,8 @@ tr.row-group td {
 }
 
 /* PRINT */
-@page { size: A4 portrait; margin: 1.2cm 1.0cm; }
-@page landscape { size: A4 landscape; margin: 0.7cm 0.8cm; }
+@page { size: A4 portrait; margin: 1.0cm 0.9cm; }
+@page landscape { size: A4 landscape; margin: 0.6cm 0.8cm; }
 
 @media print {
   /* ── Ocultar elementos de UI ── */
@@ -575,113 +575,123 @@ tr.row-group td {
   input[type="number"],
   input[type="hidden"] { display: none !important; }
 
-  /* ── Layout base ── */
-  body { font-size: 11px; background: white !important; color: #6B4226 !important; }
+  /* ── Layout base — fuente base más grande ── */
+  body { font-size: 12px; background: white !important; color: #1A1815 !important; }
   .shell { display: block !important; }
   .main { padding: 0 !important; overflow: visible !important; }
-  .header { position: static !important; padding: 8px 0 6px; margin-bottom: 4px; border-bottom: 1px solid #ccc; }
-  .header h1 { font-size: 15px; }
-  .header span { font-size: 10px; }
+  .header { position: static !important; padding: 8px 0 6px; margin-bottom: 6px; border-bottom: 1.5px solid #6B4226; }
+  .header h1 { font-size: 18px; color: #6B4226 !important; }
+  .header span { font-size: 11px; color: #555 !important; }
 
   /* ── Mostrar todos los paneles ── */
   .panel { display: block !important; page-break-after: always; break-after: page; }
   .panel:last-child { page-break-after: avoid; break-after: avoid; }
 
-  /* ── Cuotas: landscape, todo en una sola página ── */
+  /* ── Cuotas: landscape ── */
   #tab-cuotas { page: landscape; }
   #tab-cuotas .section { page-break-inside: avoid !important; break-inside: avoid !important; overflow: visible !important; }
-  #tab-cuotas .table-wrap { overflow: visible !important; page-break-inside: avoid !important; break-inside: avoid !important; }
-  #tab-cuotas table { font-size: 8px; page-break-inside: avoid !important; break-inside: avoid !important; width: 100%; table-layout: fixed; }
-  #tab-cuotas thead { display: table-header-group; }
-  #tab-cuotas tfoot { display: table-footer-group; }
-  #tab-cuotas thead th { padding: 3px 3px; font-size: 7.5px; white-space: nowrap; overflow: hidden; }
-  #tab-cuotas tbody td { padding: 2px 3px; font-size: 8px; }
-  #tab-cuotas tfoot td { padding: 2px 3px; font-size: 8px; }
-  /* Fila total bruto */
-  #tab-cuotas tfoot tr td { font-size: 8px !important; }
-  /* Barra totalbar debajo de tabla */
-  #tab-cuotas .total-bar { font-size: 8px; flex-wrap: wrap; gap: 4px; padding: 4px 8px; page-break-inside: avoid; break-inside: avoid; }
-  /* Métricas resumen */
-  #tab-cuotas .metrics { page-break-inside: avoid !important; break-inside: avoid !important; margin-top: 6px; }
-  #tab-cuotas .metric { padding: 6px 8px; }
-  #tab-cuotas .metric .mval { font-size: 11px; }
-  /* Ocultar barra de % actualización en print — solo labels de meses no hace falta verlos */
+  #tab-cuotas .table-wrap { overflow: visible !important; page-break-inside: avoid !important; }
+  #tab-cuotas table { font-size: 9px; width: 100%; table-layout: fixed; }
+  #tab-cuotas thead th { padding: 4px 4px; font-size: 8.5px; white-space: nowrap; }
+  #tab-cuotas tbody td { padding: 3px 4px; font-size: 9px; }
+  #tab-cuotas tfoot td { padding: 3px 4px; font-size: 9px; }
+  #tab-cuotas .total-bar { font-size: 9px; padding: 5px 8px; }
+  #tab-cuotas .metrics { margin-top: 8px; }
+  #tab-cuotas .metric .mval { font-size: 13px; }
   #tab-cuotas > .section > div:first-child { display: none !important; }
-  /* Ocultar botón agregar nivel y campo becas */
   #tab-cuotas > div:nth-child(4) { display: none !important; }
 
-  /* ── Egresos: mantener título con el contenido ── */
+  /* ── Egresos/Recursos ── */
   #tab-egresos .page-title,
-  #tab-egresos .page-sub { page-break-after: avoid !important; break-after: avoid !important; }
-  #tab-egresos .section { page-break-before: avoid !important; break-before: avoid !important; }
+  #tab-egresos .page-sub { page-break-after: avoid !important; }
+  #tab-egresos .section { page-break-before: avoid !important; }
 
   /* ── Secciones ── */
-  .section { overflow: visible !important; page-break-inside: avoid; break-inside: avoid; margin-bottom: 10px; border: 0.5px solid #ccc; }
-  .section-head { background: #F0EDE6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .section { overflow: visible !important; page-break-inside: avoid; break-inside: avoid; margin-bottom: 12px; border: 0.5px solid #ccc; }
+  .section-head { background: #F0EDE6 !important; font-size: 12px !important; padding: 7px 14px !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .table-wrap { overflow: visible !important; }
 
-  /* ── Campos formateados: mostrar el span, ocultar input ── */
+  /* ── Campos formateados ── */
   [id$="-disp"] { display: inline !important; }
   span[id$="-disp"] { cursor: default; }
   .field > div > span[id$="-disp"] { border: none !important; background: transparent !important; }
-
-  /* ── Valores en campos de inicio: mostrar display, ocultar input ── */
   .form-grid .field > div { border: 0.5px solid #ddd; border-radius: 4px; }
 
-  /* ── Métricas ── */
-  .metrics { grid-template-columns: repeat(3, 1fr) !important; gap: 6px !important; margin-bottom: 10px; }
-  .metric { border: 0.5px solid #ccc; padding: 8px 10px; }
-  .metric .mval { font-size: 14px; }
+  /* ── Métricas — más grandes ── */
+  .metrics { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; margin-bottom: 12px; }
+  .metric { border: 0.5px solid #ccc; padding: 10px 12px; }
+  .metric .mlabel { font-size: 10px; }
+  .metric .mval { font-size: 17px !important; }
 
   /* ── Acordeón: expandir todo ── */
   tr.acc-item.hidden { display: table-row !important; }
   tr.acc-item td { padding-left: 20px !important; }
   tr.acc-group { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  tr.acc-group td { background: #6B4226 !important; color: #F5F3EE !important; font-size: 9.5px !important; padding: 5px 10px !important; }
+  tr.acc-group td { background: #6B4226 !important; color: #fff !important; font-size: 11px !important; padding: 6px 12px !important; }
 
-  /* ── Tablas generales ── */
-  table { font-size: 10px; }
-  thead th { font-size: 9px; padding: 4px 8px; border-bottom: 1px solid #ccc; }
-  tbody td { padding: 4px 8px; border-bottom: 0.5px solid #eee; }
+  /* ── Tablas generales — números más grandes ── */
+  table { font-size: 11px; }
+  thead th { font-size: 10px; padding: 5px 8px; border-bottom: 1px solid #ccc; }
+  tbody td { padding: 5px 8px; border-bottom: 0.5px solid #eee; font-size: 11px; }
+  tbody td:last-child, tbody td.r { font-size: 12px; font-weight: 500; }
   tr.row-sub td { background: #F0EDE6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  tr.row-total td { background: #6B4226 !important; color: #F5F3EE !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  tr.row-total td { background: #6B4226 !important; color: #fff !important; font-size: 12px !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   /* ── Estado de Resultado (Unidades) ── */
-  .er-table td { padding: 5px 10px; font-size: 10px; }
+  .er-table td { padding: 6px 12px; font-size: 11px; }
+  .er-table .er-val { font-size: 13px !important; font-weight: 600; }
   .er-table .er-group { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #F0EDE6 !important; }
-  .er-table .er-total td { background: #6B4226 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .er-table .er-sub td { background: #E4EDF5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .er-unit-title { font-size: 14px; margin: 8px 0 4px; }
+  .er-table .er-total td { background: #6B4226 !important; color: white !important; font-size: 13px !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .er-table .er-sub td { background: #E4EDF5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 12px !important; }
+  .er-unit-title { font-size: 16px; margin: 10px 0 5px; color: #6B4226; }
 
-  /* ── Resumen: líneas ── */
-  .resumen-line { padding: 6px 12px; font-size: 11px; }
-  .resumen-line.total { background: #6B4226 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .resumen-line.subtot { background: #F0EDE6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  /* ── Resumen: líneas — números más prominentes ── */
+  .resumen-line { padding: 7px 14px; font-size: 12px; display: flex; justify-content: space-between; }
+  .resumen-line span:last-child, .resumen-line strong { font-size: 13px !important; font-weight: 600; }
+  .resumen-line.total { background: #6B4226 !important; color: white !important; font-size: 14px !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .resumen-line.total span { font-size: 15px !important; font-weight: 700; }
+  .resumen-line.subtot { background: #F0EDE6 !important; font-size: 13px !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .resumen-line.subtot span { font-size: 14px !important; font-weight: 600; }
 
-  /* ── Notas: contenteditable como texto ── */
+  /* ── Notas ── */
   #notas {
     border: none !important;
     background: transparent !important;
     min-height: 0 !important;
     overflow: visible !important;
     white-space: pre-wrap !important;
-    font-size: 10.5px !important;
-    line-height: 1.8 !important;
+    font-size: 11px !important;
+    line-height: 1.9 !important;
     padding: 0 !important;
+    resize: none !important;
+    width: 100% !important;
+    height: auto !important;
   }
 
-  /* ── Total bars ── */
-  .total-bar { background: #F0EDE6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 10px; }
+  /* ── Total bars — más visibles ── */
+  .total-bar {
+    background: #F0EDE6 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-size: 12px !important;
+    padding: 8px 14px !important;
+  }
+  .total-bar strong { font-size: 14px !important; }
 
   /* ── Títulos de página ── */
-  .page-title { font-size: 18px; margin-bottom: 4px; }
-  .page-sub { font-size: 9px; margin-bottom: 8px; }
+  .page-title { font-size: 20px; margin-bottom: 4px; color: #6B4226; }
+  .page-sub { font-size: 10px; margin-bottom: 10px; color: #666; }
 
   /* ── Ocultar paneles vacíos alias ── */
   #tab-estacionamiento, #tab-cantina { display: none !important; }
 
-  /* ── Inversiones: input mostrar valor ── */
+  /* ── Inversiones ── */
   #inv-body span[id^="inv-pu-disp"] { display: inline !important; }
+  #inv-body td { font-size: 11px; }
+  #inv-total { font-size: 14px !important; }
+
+  /* ── Punto de Equilibrio — ocultar gráfico en impresión ── */
+  #pe-chart { display: none !important; }
 }
 /* cuota month cols — compact */
 #tab-cuotas td.muted { font-size: 11.5px; padding: 6px 8px; }
@@ -886,7 +896,7 @@ tr.acc-subtotal td {
         <button class="btn" onclick="addNivel()">+ agregar nivel</button>
         <div class="field" style="flex-direction:row;align-items:center;gap:8px;margin:0">
           <label style="font-size:11px;white-space:nowrap">% Becas / Desc.:</label>
-          <input type="number" id="pBeca" value="2.57" oninput="calcCuotas()" style="width:70px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);font-family:'DM Mono',monospace;font-size:12px">
+          <input type="number" id="pBeca" value="3" oninput="calcCuotas()" style="width:70px;padding:6px 8px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);font-family:'DM Mono',monospace;font-size:12px">
           <span style="font-size:11px;color:var(--text3)">%</span>
         </div>
       </div>
@@ -1026,18 +1036,28 @@ tr.acc-subtotal td {
           <div class="form-grid" style="grid-template-columns:1fr">
             <div class="field">
               <label>Notas adicionales (metodología, supuestos, aclaraciones)</label>
-              <div id="notas" contenteditable="true" style="padding:10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);font-family:'DM Mono',monospace;font-size:12px;color:var(--text);min-height:140px;line-height:1.8;white-space:pre-wrap;outline:none">Presupuesto confeccionado: Marzo 2026
-Período: 01/03/2026 al 28/02/2027
-Sistema: Devengado
+              <textarea id="notas" oninput="fbAutoSave()" style="padding:10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg);font-family:'DM Mono',monospace;font-size:12px;color:var(--text);min-height:200px;line-height:1.8;white-space:pre-wrap;outline:none;width:100%;resize:vertical;box-sizing:border-box">Nota – Actualizacion cuota y matricula 2026/2027
+Para la proyección del ejercicio marzo 2026 a febrero 2027, se establece un esquema de actualización de cuotas basado en la evolución de los costos salariales y la inflación proyectada, con el objetivo de mantener el equilibrio económico-financiero del colegio.
+En primer lugar, se aplica en el mes de abril una actualización del 5,36%, derivada del impacto de los incrementos salariales docentes dispuestos en marzo, considerando tanto el aumento general como el diferencial sobre una proporción del personal.
+Asimismo, se contemplan actualizaciones posteriores en función de la inflación proyectada, aplicadas de manera escalonada en los siguientes períodos:Junio 2026: 6,70% (inflación acumulada marzo–mayo)Septiembre 2026: 5,06% (inflación acumulada junio–agosto)Diciembre 2026: 4,25% (inflación acumulada septiembre–noviembre)Este esquema de actualización permite acompañar la evolución de los costos, especialmente los vinculados a personal, que constituyen el principal componente del gasto institucional.
+En cuanto a la matrícula, la misma se determina conforme al criterio institucional vigente, equivalente a dos veces el valor de la cuota correspondiente al mes de diciembre, reflejando así el nivel actualizado de ingresos al inicio del ciclo lectivo siguiente.
 
-INGRESOS
-- Aportes Estatales: Informados con incremento estimado según aumentos conocidos.
-- Mensualidades: Base alumnos 2026 con ajustes según pauta acordada.
-- Matrículas: Devengamiento calculado por sistema de gestión.
+Nota – Proyección de Aportes Estatales 2026/2027
+Para la proyección del ejercicio marzo 2026 a febrero 2027, se toma como base el valor de febrero 2026, aplicando una actualización inicial del 8,43% a partir de marzo.
+Asimismo, se consideran actualizaciones posteriores en función de la inflación proyectada anual, aplicándose ajustes en los meses de junio (6,70%), septiembre (5,06%) y diciembre (4,25%), a fin de mantener el poder adquisitivo del aporte a lo largo del ejercicio.
+Adicionalmente, se incorpora el aporte estatal correspondiente al Sueldo Anual Complementario (SAC) en los meses de junio y diciembre, equivalente a un mes adicional en cada período.
+En consecuencia, el total proyectado del ejercicio asciende a $ 1.272.070.683,33.
+Dado que el sistema presupuestario anualiza el importe mensual multiplicándolo por 13, el valor mensual a cargar para reflejar correctamente el total del ejercicio es de: $ 97.851.590,99Este importe incluye, en forma prorrateada, las actualizaciones por inflación y el efecto del SAC.
 
-EGRESOS
-- Sueldos: Informados con el incremento estimado según pautas vigentes.
-- Indemnizaciones: Estimado según desvinculaciones a analizar.</div>
+Nota- En Otros Aranceles se incluye el ingreso por la implementación del proyecto de Programación, robótica, IA con "Creativos digitales", mientras que el egreso por este mismo proyecto está dentro del rubro Material didáctico y refrigerio alumnos.
+
+Nota- En honorarios se presupuesta acompañamiento al área de soporte técnico e informático del ing. Luis Giudice, en $1.475.000 mensual, por 9 meses, y el proyecto Pro.Con.Pa. por $383.000 mensuales por 9 meses.
+
+Nota- En Emergencia y seguridad se incluye el informe del técnico en seguridad e higiene laboral por $550.000.
+
+Nota- Prensa y difusión incluye la compra de un TV y su configuración para uso vertical ($2.080.720), señaletica ($203.000), renovación de página web ($250.000), DJI (estabilizador para fotos y videos, USD802,50= $1.203.750), tarjeta de memoria para DJI ($250.000), nuevos diseños vestimenta ($1.200.000) y cambio en cartelería de logos ($2.730.000).
+
+Nota- Se aumenta en Rep. y conservación de maquinarias el porcentaje, por service a los dos tractores chicos más el grande, y la plataforma desmalezadora y la cisterna para riego, y los consumibles de los mismos. Se preve mayor costo que el año anterior no solo por inflación sino también por aumento de maquinaria en uso.</textarea>
             </div>
           </div>
         </div>
@@ -1217,25 +1237,25 @@ function cerrarFmtField(id) {
 }
 
 const acFields = [
-  {id:'ac-caja',  label:'Caja',                        val:7665935},
-  {id:'ac-me',    label:'Moneda Extranjera',            val:19919508},
-  {id:'ac-vc',    label:'Valores al Cobro',             val:849799},
+  {id:'ac-caja',  label:'Caja',                        val:16176084.89},
+  {id:'ac-me',    label:'Moneda Extranjera',            val:12742530.0},
+  {id:'ac-vc',    label:'Valores al Cobro',             val:6769791.73},
   {id:'ac-fr',    label:'Fondos a Rendir Cuenta',       val:37669},
-  {id:'ac-tc',    label:'Tarjeta de Crédito',           val:21219752},
+  {id:'ac-tc',    label:'Tarjeta de Crédito',           val:25750626.0},
   {id:'ac-rapi',  label:'Rapipago / Pago Mis Cuentas',  val:0},
-  {id:'ac-banco', label:'Bancos (total)',                val:104463902},
-  {id:'ac-fci',   label:'Plazo Fijo / FCI',             val:103670147},
-  {id:'ac-apest', label:'Aportes Estatales a Cobrar',   val:63706727},
+  {id:'ac-banco', label:'Bancos (total)',                val:280752129.41},
+  {id:'ac-fci',   label:'Plazo Fijo / FCI',             val:380945419.62},
+  {id:'ac-apest', label:'Aportes Estatales a Cobrar',   val:76653129.17},
   {id:'ac-otras', label:'Otras Cuentas a Cobrar',       val:0},
 ];
 const pcFields = [
-  {id:'pc-sue',   label:'Sueldos a Pagar (Febrero)',    val:114650431},
-  {id:'pc-apo',   label:'Aportes y Contrib. Febrero',   val:29472544},
+  {id:'pc-sue',   label:'Sueldos a Pagar (Febrero)',    val:149398854.66},
+  {id:'pc-apo',   label:'Aportes y Contrib. Febrero',   val:36485306.45},
   {id:'pc-ret',   label:'Retenciones Fiscales',         val:0},
-  {id:'pc-hon',   label:'Honorarios a Pagar',           val:1950000},
-  {id:'pc-fdt',   label:'Fondos de Terceros',           val:4052256},
-  {id:'pc-rpe',   label:'Retenciones al Personal',      val:5795},
-  {id:'pc-pro',   label:'Proveedores',                  val:7041490},
+  {id:'pc-hon',   label:'Honorarios a Pagar',           val:0.3},
+  {id:'pc-fdt',   label:'Fondos de Terceros',           val:8639638.41},
+  {id:'pc-rpe',   label:'Retenciones al Personal',      val:5525419.95},
+  {id:'pc-pro',   label:'Proveedores',                  val:3617505.42},
   {id:'pc-eco',   label:'Aporte Economato',             val:10671485},
 ];
 
@@ -1436,39 +1456,39 @@ function getMatriculas() {
 // Grupos para renderizar encabezados de sección en la tabla
 const recGroups = [
   { titulo: '411 · Recursos por Aporte Estatal', items: [
-    {id:'r-apest',    cod:'411001', label:'Aportes Estatales',                         men:77000000, ms:12, auto:false, ref:932771003},
+    {id:'r-apest',    cod:'411001', label:'Aportes Estatales',                         men:97846768, ms:13, auto:false, ref:932771003},
   ]},
   { titulo: '412 · Recursos Ordinarios — Aranceles', items: [
     {id:'r-mens',     cod:'412001', label:'Mensualidades (auto · desde Cuotas)',        men:0,        ms:1,  auto:'mens', ref:0},
     {id:'r-matr',     cod:'412002', label:'Matrículas (auto · 2× cuota Dic)',           men:0,        ms:1,  auto:'matr', ref:0},
     {id:'r-beca',     cod:'412018', label:'Descuentos por Becas (deducción)',           men:0,        ms:1,  auto:'beca', ref:0},
-    {id:'r-incob',    cod:'412003', label:'Recupero Incobrables',                       men:100000,   ms:1,  auto:false, total:true, ref:907670},
+    {id:'r-incob',    cod:'412003', label:'Recupero Incobrables',                       men:950000,   ms:1,  auto:false, total:true, ref:907670},
   ]},
   { titulo: '413 · Recursos Ordinarios Otros', items: [
-    {id:'r-reint',    cod:'413001', label:'Reintegro Gastos Adm. y Comisiones',         men:3200000,  ms:10, auto:false, ref:30540094},
+    {id:'r-reint',    cod:'413001', label:'Reintegro Gastos Adm. y Comisiones',         men:3500000,  ms:10, auto:false, ref:30540094},
     {id:'r-seguros',  cod:'413002', label:'Reintegro Seguros (Escolar / ART)',          men:5000000,  ms:10, auto:false, ref:45206963},
-    {id:'r-act-edu',  cod:'413005', label:'Actividades y Salidas Educativas Ingreso',   men:3200000,  ms:10, auto:false, ref:30773899},
-    {id:'r-dep',      cod:'413006', label:'Escuelas Deportivas y Recreativas',          men:5500000,  ms:10, auto:false, ref:51440342},
-    {id:'r-ext-hor',  cod:'413007', label:'Extensión Horaria',                          men:250000,   ms:10, auto:false, ref:2374900},
-    {id:'r-mat-ini',  cod:'413008', label:'Material Nivel Inicial',                     men:2200000,  ms:10, auto:false, ref:21024502},
-    {id:'r-otros-a1', cod:'413010', label:'Otros Aranceles',                            men:400000,   ms:10, auto:false, ref:3813760},
-    {id:'r-ingles',   cod:'413011', label:'Otros Aranceles Inglés',                     men:1300000,  ms:10, auto:false, ref:12051600},
+    {id:'r-act-edu',  cod:'413005', label:'Actividades y Salidas Educativas Ingreso',   men:3700000,  ms:10, auto:false, ref:30773899},
+    {id:'r-dep',      cod:'413006', label:'Escuelas Deportivas y Recreativas',          men:6000000,  ms:10, auto:false, ref:51440342},
+    {id:'r-ext-hor',  cod:'413007', label:'Extensión Horaria',                          men:300000,   ms:10, auto:false, ref:2374900},
+    {id:'r-mat-ini',  cod:'413008', label:'Material Nivel Inicial',                     men:2500000,  ms:10, auto:false, ref:21024502},
+    {id:'r-otros-a1', cod:'413010', label:'Otros Aranceles',                            men:1296678,   ms:10, auto:false, ref:3813760},
+    {id:'r-ingles',   cod:'413011', label:'Otros Aranceles Inglés',                     men:1500000,  ms:10, auto:false, ref:12051600},
   ]},
   { titulo: '414 · Recursos por Otras Actividades Especiales', items: [
-    {id:'r-alq',      cod:'414003', label:'Alquiler Espacios Colegio',                  men:130000,   ms:10, auto:false, ref:1189440},
-    {id:'r-est-ing',  cod:'414004', label:'Vta. Estacionamiento',                       men:7500000,  ms:10, auto:false, ref:71340423},
-    {id:'r-uni-ing',  cod:'414005', label:'Vta. Uniformes',                             men:13000000, ms:12, auto:false, ref:136887500},
-    {id:'r-lib-ing',  cod:'414006', label:'Vta. Librería',                              men:1700000,  ms:10, auto:false, ref:16347684},
-    {id:'r-tarj',     cod:'414013', label:'Recupero Gastos Tarjetas de Crédito',        men:700000,   ms:10, auto:false, ref:6351383},
-    {id:'r-can-ing',  cod:'414014', label:'Vta. Cantina',                               men:17000000, ms:10, auto:false, ref:151962265},
+    {id:'r-alq',      cod:'414003', label:'Alquiler Espacios Colegio',                  men:149988,   ms:10, auto:false, ref:1189440},
+    {id:'r-est-ing',  cod:'414004', label:'Vta. Estacionamiento',                       men:7567026,  ms:12, auto:false, ref:71340423},
+    {id:'r-uni-ing',  cod:'414005', label:'Vta. Uniformes',                             men:14394115, ms:12, auto:false, ref:136887500},
+    {id:'r-lib-ing',  cod:'414006', label:'Vta. Librería',                              men:1687094,  ms:12, auto:false, ref:16347684},
+    {id:'r-tarj',     cod:'414013', label:'Recupero Gastos Tarjetas de Crédito',        men:800000,   ms:10, auto:false, ref:6351383},
+    {id:'r-can-ing',  cod:'414014', label:'Vta. Cantina',                               men:17421118, ms:11, auto:false, ref:151962265},
   ]},
   { titulo: '415 · Ingresos Financieros', items: [
-    {id:'r-int',      cod:'415001', label:'Intereses y Rendimiento de Inversiones',     men:8000000,  ms:12, auto:false, ref:75205217},
-    {id:'r-mora',     cod:'415002', label:'Recargos por Mora',                          men:4000000,  ms:12, auto:false, ref:38064559},
-    {id:'r-dif-cot',  cod:'415003', label:'Diferencias de Cotizaciones',                men:900000,   ms:12, auto:false, ref:8203888},
+    {id:'r-int',      cod:'415001', label:'Intereses y Rendimiento de Inversiones',     men:7500000,  ms:12, auto:false, ref:75205217},
+    {id:'r-mora',     cod:'415002', label:'Recargos por Mora',                          men:3800000,  ms:12, auto:false, ref:38064559},
+    {id:'r-dif-cot',  cod:'415003', label:'Diferencias de Cotizaciones',                men:0,   ms:12, auto:false, ref:8203888},
   ]},
   { titulo: '421 · Recursos Extraordinarios', items: [
-    {id:'r-sob-caja', cod:'421001', label:'Sobrante de Caja',                           men:10000,    ms:1,  auto:false, total:true, ref:98689},
+    {id:'r-sob-caja', cod:'421001', label:'Sobrante de Caja',                           men:0,    ms:1,  auto:false, total:true, ref:98689},
   ]},
 ];
 // Aplanar para las funciones que necesitan lista plana
@@ -1805,38 +1825,38 @@ const egrGroups = [
     {id:'e-rep-aut',  cod:'512008', label:'Repar. y Conserv. Automotores',              ref:630264,     tipo:'otro'},
     {id:'e-limp',     cod:'512009', label:'Servicios y Art. de Limpieza',               ref:16722490,   tipo:'otro'},
     {id:'e-imp',      cod:'512010', label:'Impuestos y Tasas',                          ref:649949,     tipo:'otro'},
-    {id:'e-com',      cod:'512011', label:'Comisiones',                                 ref:45877169,   tipo:'otro'},
+    {id:'e-com',      cod:'512011', label:'Comisiones',                                 ref:45675055,   tipo:'otro'},
     {id:'e-secu',     cod:'512012', label:'Seguridad y Emergencias Médicas',            ref:3142950,    tipo:'otro'},
   ]},
   { titulo: '513 · Gastos Administrativos', items: [
-    {id:'e-lib',      cod:'513001', label:'Librería e Impresiones',                     ref:15077639,   tipo:'otro'},
+    {id:'e-lib',      cod:'513001', label:'Librería e Impresiones',                     ref:15107590,   tipo:'otro'},
     {id:'e-it',       cod:'513002', label:'Informática',                                ref:18035370,   tipo:'otro'},
     {id:'e-prensa',   cod:'513003', label:'Prensa y Difusión',                          ref:3992786,    tipo:'otro'},
     {id:'e-sus',      cod:'513004', label:'Suscripciones',                              ref:1262426,    tipo:'otro'},
-    {id:'e-via',      cod:'513005', label:'Viáticos, Agasajos y Regalos',               ref:30258532,   tipo:'otro'},
+    {id:'e-via',      cod:'513005', label:'Viáticos, Agasajos y Regalos',               ref:26747459,   tipo:'otro'},
     {id:'e-enc',      cod:'513006', label:'Encuentros y Asambleas',                     ref:32588301,   tipo:'otro'},
-    {id:'e-comb',     cod:'513007', label:'Movilidad y Combustible',                    ref:24343573,   tipo:'otro'},
+    {id:'e-comb',     cod:'513007', label:'Movilidad y Combustible',                    ref:15325076,   tipo:'otro'},
     {id:'e-mat-did',  cod:'513008', label:'Material Didáctico y Refrigerios Alumnos',   ref:16152537,   tipo:'otro'},
-    {id:'e-banco',    cod:'513009', label:'Gastos Bancarios',                           ref:9067327,    tipo:'otro'},
+    {id:'e-banco',    cod:'513009', label:'Gastos Bancarios',                           ref:8966932,    tipo:'otro'},
     {id:'e-dif-caja', cod:'513011', label:'Diferencias de Caja',                        ref:90030,      tipo:'otro'},
-    {id:'e-act-edu',  cod:'513013', label:'Actividades y Salidas Educativas Egreso',    ref:1560730,    tipo:'otro'},
+    {id:'e-act-edu',  cod:'513013', label:'Actividades y Salidas Educativas Egreso',    ref:14035730,    tipo:'otro'},
     {id:'e-don',      cod:'513014', label:'Donación Egreso',                            ref:3647700,    tipo:'otro'},
   ]},
   { titulo: '514 · Gastos Otras Actividades Especiales', items: [
-    {id:'e-uni-gasto',cod:'514001', label:'Gasto Venta Uniformes',                      ref:50779765,   tipo:'otro'},
-    {id:'e-est-gasto',cod:'514002', label:'Gasto Estacionamiento',                      ref:6225223,    tipo:'otro'},
-    {id:'e-can-gasto',cod:'514003', label:'Gasto Cantina',                              ref:96533057,   tipo:'otro'},
-    {id:'e-lib-gasto',cod:'514004', label:'Gasto Librería',                             ref:7782174,    tipo:'otro'},
+    {id:'e-uni-gasto',cod:'514001', label:'Gasto Venta Uniformes',                      ref:81759691,   tipo:'otro'},
+    {id:'e-est-gasto',cod:'514002', label:'Gasto Estacionamiento',                      ref:13571610,    tipo:'otro'},
+    {id:'e-can-gasto',cod:'514003', label:'Gasto Cantina',                              ref:95956009,   tipo:'otro'},
+    {id:'e-lib-gasto',cod:'514004', label:'Gasto Librería',                             ref:5186377,    tipo:'otro'},
     {id:'e-act-esp',  cod:'514006', label:'Gastos de Actividades Especiales',           ref:250500,     tipo:'otro'},
   ]},
   { titulo: '516 · Otros Gastos', items: [
-    {id:'e-culto',    cod:'516004', label:'Culto',                                      ref:1879550,    tipo:'otro'},
+    {id:'e-culto',    cod:'516004', label:'Culto',                                      ref:1984550,    tipo:'otro'},
   ]},
   { titulo: '517 · Aportes a la Caja Común', items: [
     {id:'e-caja-g', cod:'517001', label:'Aportes a la Caja Común (auto · % sobre base)', ref:123593547, tipo:'otro', auto:'cajagen'},
   ]},
   { titulo: '519 · Egresos Financieros', items: [
-    {id:'e-dif-cot',  cod:'519302', label:'Diferencias de Cotizaciones',                ref:8082538,    tipo:'otro'},
+    {id:'e-dif-cot',  cod:'519302', label:'Diferencias de Cotizaciones',                ref:4037489,    tipo:'otro'},
     {id:'e-int-mora', cod:'519304', label:'Intereses Moratorios y Multas',              ref:281795,     tipo:'otro'},
   ]},
 ];
@@ -3175,11 +3195,12 @@ function fbAutoSave() {
 
 function capturarEstado() {
   const estado = { v: 2, ts: new Date().toISOString(), _htmlVersion: window._getHtmlVersion ? window._getHtmlVersion() : 1 };
-  const inputs = document.querySelectorAll('input[id], [contenteditable][id]');
+  const inputs = document.querySelectorAll('input[id], textarea[id], [contenteditable][id]');
   estado.inputs = {};
   inputs.forEach(el => {
     if (!el.id || el.type === 'file') return;
     if (el.tagName === 'INPUT') estado.inputs[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+    else if (el.tagName === 'TEXTAREA') estado.inputs[el.id] = el.value;
     else estado.inputs[el.id] = el.innerText;
   });
   estado.niveles = niveles.map((nv, i) => ({
@@ -3187,7 +3208,7 @@ function capturarEstado() {
   }));
   estado.invItems = invItems.map(it => ({...it}));
   estado.nombreColegio = document.getElementById('nombre-colegio-disp')?.textContent || '';
-  estado.notas = document.getElementById('notas')?.innerText || '';
+  estado.notas = document.getElementById('notas')?.value || '';
   estado.uerVals = {...uerVals};
   estado.subs511 = {};
   egrGroups[0].items.filter(e=>e.subs).forEach(e => {
@@ -3244,7 +3265,7 @@ function aplicarEstado(estado) {
   // 2. Notas
   if (estado.notas !== undefined) {
     const n = document.getElementById('notas');
-    if (n) n.innerText = estado.notas;
+    if (n) n.value = estado.notas;
   }
 
   // 3. Niveles de cuota
@@ -3366,6 +3387,9 @@ function aplicarEstado(estado) {
   });
 }
 
+// ─── DATOS PRECARGADOS (del último estado guardado) ───
+const _ESTADO_PRECARGADO = {"v": 2, "ts": "2026-03-31T17:59:43.796Z", "_htmlVersion": 4, "inputs": {"nombre-colegio-inp": "Colegio Sta. Catalina", "resp-activo-inp": "Cdra. Noelia", "ac-caja": "16176084.89", "ac-me": "12742530", "ac-vc": "6769791.73", "ac-fr": "0", "ac-tc": "25750626.00", "ac-rapi": "0", "ac-banco": "280752129.41", "ac-fci": "380945419.62", "ac-apest": "76653129.17", "ac-otras": "0", "resp-pasivo-inp": "Cdra. Silvia", "pc-sue": "149398854.66", "pc-apo": "36485306.45", "pc-ret": "0", "pc-hon": "0.3", "pc-fdt": "8639638.41", "pc-rpe": "5525419.95", "pc-pro": "3617505.42", "pc-eco": "0", "resp-cuotas-inp": "", "aumMar": "0", "aumAbr": "5.36", "aumMay": "0", "aumJun": "6.7", "aumJul": "0", "aumAgo": "0", "aumSep": "5.06", "aumOct": "0", "aumNov": "0", "aumDic": "4.25", "nv-al-0": "68", "nv-cu-0": "220000", "nv-cc-0": "", "nv-al-1": "276", "nv-cu-1": "145000", "nv-cc-1": "5000", "nv-al-2": "609", "nv-cu-2": "155000", "nv-cc-2": "5000", "nv-al-3": "572", "nv-cu-3": "158000", "nv-cc-3": "5000", "pBeca": "3", "resp-recursos-inp": "Cdr. Luis / Lic. Nicolas ", "inc-rec": "30", "r-apest-cod-inp": "411001", "r-apest-lbl-inp": "Aportes Estatales", "r-apest-ref-inp": "932771003", "r-apest-pct": "", "r-apest-m": "97846768.54", "r-apest-ms": "13", "r-mens-cod-inp": "412001", "r-mens-lbl-inp": "Mensualidades (auto · desde Cuotas)", "r-mens-m": "277107258", "r-mens-ms": "1", "r-matr-cod-inp": "412002", "r-matr-lbl-inp": "Matrículas (auto · 2× cuota Dic)", "r-matr-m": "590396998", "r-matr-ms": "1", "r-beca-cod-inp": "412018", "r-beca-lbl-inp": "Descuentos por Becas (deducción)", "r-beca-m": "-83132178", "r-beca-ms": "1", "r-incob-cod-inp": "412003", "r-incob-lbl-inp": "Recupero Incobrables", "r-incob-ref-inp": "907670", "r-incob-pct": "", "r-incob-m": "950000", "r-incob-ms": "1", "r-reint-cod-inp": "413001", "r-reint-lbl-inp": "Reintegro Gastos Adm. y Comisiones", "r-reint-ref-inp": "30540094", "r-reint-pct": "", "r-reint-m": "3500000", "r-reint-ms": "10", "r-seguros-cod-inp": "413002", "r-seguros-lbl-inp": "Reintegro Seguros (Escolar / ART)", "r-seguros-ref-inp": "45206963", "r-seguros-pct": "", "r-seguros-m": "5000000", "r-seguros-ms": "10", "r-act-edu-cod-inp": "413005", "r-act-edu-lbl-inp": "Actividades y Salidas Educativas Ingreso", "r-act-edu-ref-inp": "30773899", "r-act-edu-pct": "", "r-act-edu-m": "3700000", "r-act-edu-ms": "10", "r-dep-cod-inp": "413006", "r-dep-lbl-inp": "Escuelas Deportivas y Recreativas", "r-dep-ref-inp": "51440342", "r-dep-pct": "", "r-dep-m": "6000000", "r-dep-ms": "10", "r-ext-hor-cod-inp": "413007", "r-ext-hor-lbl-inp": "Extensión Horaria", "r-ext-hor-ref-inp": "2374900", "r-ext-hor-pct": "", "r-ext-hor-m": "300000", "r-ext-hor-ms": "10", "r-mat-ini-cod-inp": "413008", "r-mat-ini-lbl-inp": "Material Nivel Inicial", "r-mat-ini-ref-inp": "21024502", "r-mat-ini-pct": "", "r-mat-ini-m": "2500000", "r-mat-ini-ms": "10", "r-otros-a1-cod-inp": "413010", "r-otros-a1-lbl-inp": "Otros Aranceles", "r-otros-a1-ref-inp": "3813760", "r-otros-a1-pct": "240", "r-otros-a1-m": "1296678", "r-otros-a1-ms": "10", "r-ingles-cod-inp": "413011", "r-ingles-lbl-inp": "Otros Aranceles Inglés", "r-ingles-ref-inp": "12051600", "r-ingles-pct": "", "r-ingles-m": "1500000", "r-ingles-ms": "10", "r-alq-cod-inp": "414003", "r-alq-lbl-inp": "Alquiler Espacios Colegio", "r-alq-ref-inp": "1189440", "r-alq-pct": "26.1", "r-alq-m": "149988", "r-alq-ms": "10", "r-est-ing-cod-inp": "414004", "r-est-ing-lbl-inp": "Vta. Estacionamiento", "r-est-ing-ref-inp": "71340423", "r-est-ing-pct": "", "r-est-ing-m": "7567026", "r-est-ing-ms": "12", "r-uni-ing-cod-inp": "414005", "r-uni-ing-lbl-inp": "Vta. Uniformes", "r-uni-ing-ref-inp": "136887500", "r-uni-ing-pct": "", "r-uni-ing-m": "14394115", "r-uni-ing-ms": "12", "r-lib-ing-cod-inp": "414006", "r-lib-ing-lbl-inp": "Vta. Librería", "r-lib-ing-ref-inp": "16347684", "r-lib-ing-pct": "", "r-lib-ing-m": "1687094", "r-lib-ing-ms": "12", "r-tarj-cod-inp": "414013", "r-tarj-lbl-inp": "Recupero Gastos Tarjetas de Crédito", "r-tarj-ref-inp": "6351383", "r-tarj-pct": "", "r-tarj-m": "800000", "r-tarj-ms": "10", "r-can-ing-cod-inp": "414014", "r-can-ing-lbl-inp": "Vta. Cantina", "r-can-ing-ref-inp": "151962265", "r-can-ing-pct": "", "r-can-ing-m": "17421118", "r-can-ing-ms": "11", "r-int-cod-inp": "415001", "r-int-lbl-inp": "Intereses y Rendimiento de Inversiones", "r-int-ref-inp": "75205217", "r-int-pct": "", "r-int-m": "7500000", "r-int-ms": "12", "r-mora-cod-inp": "415002", "r-mora-lbl-inp": "Recargos por Mora", "r-mora-ref-inp": "38064559", "r-mora-pct": "", "r-mora-m": "3800000", "r-mora-ms": "12", "r-dif-cot-cod-inp": "415003", "r-dif-cot-lbl-inp": "Diferencias de Cotizaciones", "r-dif-cot-ref-inp": "8203888", "r-dif-cot-pct": "", "r-dif-cot-m": "0", "r-dif-cot-ms": "12", "r-sob-caja-cod-inp": "421001", "r-sob-caja-lbl-inp": "Sobrante de Caja", "r-sob-caja-ref-inp": "98689", "r-sob-caja-pct": "", "r-sob-caja-m": "00", "r-sob-caja-ms": "1", "resp-egresos-inp": "Cdr. Luis / Lic. Nicolas", "inc-sal": "25", "inc-gas": "30", "e-sue-cod-inp": "511001", "e-sue-lbl-inp": "Sueldos", "e-sue-ref-inp": "1483992549.01", "e-sue-col": "2185576545", "e-sue-est": "36553247.91", "e-sue-can": "41035782.59", "e-sue-uni": "25924966.08", "e-cc-cod-inp": "511002", "e-cc-lbl-inp": "Cargas Sociales", "e-cc-ref-inp": "199283522.75", "e-cc-col": "295052833", "e-cc-est": "4934688.47", "e-cc-can": "5539830.65", "e-cc-uni": "3499870.42", "e-hab-cod-inp": "511003", "e-hab-lbl-inp": "Haberes Sin Aportes", "e-hab-ref-inp": "740838152.81", "e-hab-col": "888551042.08", "e-hab-est": "0", "e-hab-can": "0", "e-hab-uni": "0", "e-asig-cod-inp": "511012", "e-asig-lbl-inp": "Asignaciones Familiares", "e-asig-ref-inp": "13222502.08", "e-asig-col": "57776604.25", "e-asig-est": "1671072", "e-asig-can": "1944202", "e-asig-uni": "0", "e-indem-cod-inp": "511005", "e-indem-lbl-inp": "Indemnización", "e-indem-ref-inp": "12003265", "e-indem-col": "30000000", "e-indem-est": "0", "e-indem-can": "0", "e-indem-uni": "0", "e-cap-cod-inp": "511006", "e-cap-lbl-inp": "Capacitación", "e-cap-ref-inp": "4791537", "e-cap-col": "10000000", "e-cap-est": "0", "e-cap-can": "0", "e-cap-uni": "0", "e-uni-ropa-cod-inp": "511007", "e-uni-ropa-lbl-inp": "Uniformes / Ropa de Trabajo", "e-uni-ropa-ref-inp": "3012902", "e-uni-ropa-col": "5000000", "e-uni-ropa-est": "0", "e-uni-ropa-can": "0", "e-uni-ropa-uni": "0", "e-otros-p-cod-inp": "511008", "e-otros-p-lbl-inp": "Otros Gastos en Personal", "e-otros-p-ref-inp": "54022642.59", "e-otros-p-col": "70000000", "e-otros-p-est": "0", "e-otros-p-can": "0", "e-otros-p-uni": "0", "e-com-herm-cod-inp": "511009", "e-com-herm-lbl-inp": "Comunidad Hermanas", "e-com-herm-ref-inp": "77913553", "e-com-herm-pct": "26", "e-com-herm": "98171077", "e-hon-cod-inp": "512001", "e-hon-lbl-inp": "Honorarios", "e-hon-ref-inp": "27039706", "e-hon-pct": "89", "e-hon": "51105044", "e-seg-cod-inp": "512002", "e-seg-lbl-inp": "Seguros", "e-seg-ref-inp": "38105986", "e-seg-pct": "117", "e-seg": "82689990", "e-lug-cod-inp": "512003", "e-lug-lbl-inp": "Luz, Agua, Gas", "e-lug-ref-inp": "54973743", "e-lug-pct": "35", "e-lug": "74214553", "e-tel-cod-inp": "512004", "e-tel-lbl-inp": "Teléfono y Comunicaciones", "e-tel-ref-inp": "14732689", "e-tel-pct": "30", "e-tel": "19152496", "e-rep-ed-cod-inp": "512005", "e-rep-ed-lbl-inp": "Repar. y Conserv. Edificios", "e-rep-ed-ref-inp": "114082558", "e-rep-ed-pct": "26.1", "e-rep-ed": "143858106", "e-rep-mbl-cod-inp": "512006", "e-rep-mbl-lbl-inp": "Repar. y Conserv. Muebles", "e-rep-mbl-ref-inp": "2436078", "e-rep-mbl-pct": "26.1", "e-rep-mbl": "3071894", "e-rep-maq-cod-inp": "512007", "e-rep-maq-lbl-inp": "Repar. y Conserv. Maquinarias", "e-rep-maq-ref-inp": "6878448", "e-rep-maq-pct": "46", "e-rep-maq": "10042534", "e-rep-aut-cod-inp": "512008", "e-rep-aut-lbl-inp": "Repar. y Conserv. Automotores", "e-rep-aut-ref-inp": "630264", "e-rep-aut-pct": "218", "e-rep-aut": "2004240", "e-limp-cod-inp": "512009", "e-limp-lbl-inp": "Servicios y Art. de Limpieza", "e-limp-ref-inp": "16722490", "e-limp-pct": "26.1", "e-limp": "21087060", "e-imp-cod-inp": "512010", "e-imp-lbl-inp": "Impuestos y Tasas", "e-imp-ref-inp": "649949", "e-imp-pct": "26.1", "e-imp": "819586", "e-com-cod-inp": "512011", "e-com-lbl-inp": "Comisiones", "e-com-ref-inp": "45675055.46", "e-com-pct": "26.1", "e-com": "57851110", "e-secu-cod-inp": "512012", "e-secu-lbl-inp": "Seguridad y Emergencias Médicas", "e-secu-ref-inp": "3142950", "e-secu-pct": "43", "e-secu": "4494419", "e-lib-cod-inp": "513001", "e-lib-lbl-inp": "Librería e Impresiones", "e-lib-ref-inp": "15107590.27", "e-lib-pct": "26.1", "e-lib": "19012903", "e-it-cod-inp": "513002", "e-it-lbl-inp": "Informática", "e-it-ref-inp": "18035370", "e-it-pct": "26.1", "e-it": "22742602", "e-prensa-cod-inp": "513003", "e-prensa-lbl-inp": "Prensa y Difusión", "e-prensa-ref-inp": "3992786", "e-prensa-pct": "151", "e-prensa": "10021893", "e-sus-cod-inp": "513004", "e-sus-lbl-inp": "Suscripciones", "e-sus-ref-inp": "1262426", "e-sus-pct": "26.1", "e-sus": "1591919", "e-via-cod-inp": "513005", "e-via-lbl-inp": "Viáticos, Agasajos y Regalos", "e-via-ref-inp": "26747459.78", "e-via-pct": "26.1", "e-via": "38156009", "e-enc-cod-inp": "513006", "e-enc-lbl-inp": "Encuentros y Asambleas", "e-enc-ref-inp": "32588301", "e-enc-pct": "26.1", "e-enc": "41093848", "e-comb-cod-inp": "513007", "e-comb-lbl-inp": "Movilidad y Combustible", "e-comb-ref-inp": "15325076.04", "e-comb-pct": "26.1", "e-comb": "30697246", "e-mat-did-cod-inp": "513008", "e-mat-did-lbl-inp": "Material Didáctico y Refrigerios Alumnos", "e-mat-did-ref-inp": "16152537", "e-mat-did-pct": "136", "e-mat-did": "38119987", "e-banco-cod-inp": "513009", "e-banco-lbl-inp": "Gastos Bancarios", "e-banco-ref-inp": "8966932.99", "e-banco-pct": "26.1", "e-banco": "11433899", "e-dif-caja-cod-inp": "513011", "e-dif-caja-lbl-inp": "Diferencias de Caja", "e-dif-caja-ref-inp": "90030", "e-dif-caja-pct": "-100", "e-dif-caja": "0", "e-act-edu-cod-inp": "513013", "e-act-edu-lbl-inp": "Actividades y Salidas Educativas Egreso", "e-act-edu-ref-inp": "14035730", "e-act-edu-pct": "26.1", "e-act-edu": "17699056", "e-don-cod-inp": "513014", "e-don-lbl-inp": "Donación Egreso", "e-don-ref-inp": "3647700", "e-don-pct": "-70", "e-don": "1094310", "e-uni-gasto-cod-inp": "514001", "e-uni-gasto-lbl-inp": "Gasto Venta Uniformes", "e-uni-gasto-ref-inp": "81759691", "e-uni-gasto-pct": "26.1", "e-uni-gasto": "103098970", "e-est-gasto-cod-inp": "514002", "e-est-gasto-lbl-inp": "Gasto Estacionamiento", "e-est-gasto-ref-inp": "13571610", "e-est-gasto-pct": "15", "e-est-gasto": "15607351", "e-can-gasto-cod-inp": "514003", "e-can-gasto-lbl-inp": "Gasto Cantina", "e-can-gasto-ref-inp": "95956009", "e-can-gasto-pct": "26.1", "e-can-gasto": "121000527", "e-lib-gasto-cod-inp": "514004", "e-lib-gasto-lbl-inp": "Gasto Librería", "e-lib-gasto-ref-inp": "5186377", "e-lib-gasto-pct": "26.1", "e-lib-gasto": "6540021", "e-act-esp-cod-inp": "514006", "e-act-esp-lbl-inp": "Gastos de Actividades Especiales", "e-act-esp-ref-inp": "250500", "e-act-esp-pct": "", "e-act-esp": "250500", "e-culto-cod-inp": "516004", "e-culto-lbl-inp": "Culto", "e-culto-ref-inp": "1984550", "e-culto-pct": "26.1", "e-culto": "2370113", "e-caja-g-ref-inp": "123593547", "cajagen-pct": "4", "e-caja-g": "185770487", "e-dif-cot-cod-inp": "519302", "e-dif-cot-lbl-inp": "Diferencias de Cotizaciones", "e-dif-cot-ref-inp": "4037489.5", "e-dif-cot-pct": "-100", "e-dif-cot": "0", "e-int-mora-cod-inp": "519304", "e-int-mora-lbl-inp": "Intereses Moratorios y Multas", "e-int-mora-ref-inp": "281795", "e-int-mora-pct": "255", "e-int-mora": "1000372", "resp-inversiones-inp": "Cdr. Soria / Lic. Nkicolas /RL", "inv-pu-inp-0": "3161070", "inv-pu-inp-1": "90000000", "inv-pu-inp-2": "50000000", "inv-pu-inp-3": "7841346", "inv-pu-inp-4": "292023", "inv-pu-inp-5": "1800000", "inv-pu-inp-6": "7411770", "inv-pu-inp-7": "539024", "inv-pu-inp-8": "6500000", "inv-pu-inp-9": "20000000", "inv-pu-inp-10": "20000000", "inv-pu-inp-11": "10000000", "inv-pu-inp-12": "10000000", "inv-pu-inp-13": "72000000", "inv-pu-inp-14": "23000000", "inv-pu-inp-15": "50000000", "inv-pu-inp-16": "20000000", "inv-pu-inp-17": "660000", "inv-pu-inp-18": "150000", "inv-pu-inp-19": "500000", "inv-pu-inp-20": "1000000", "inv-pu-inp-21": "3000000", "inv-pu-inp-22": "9000000", "inv-pu-inp-23": "9000000", "inv-pu-inp-24": "525000", "notas": "Nota – Actualizacion cuota y matricula 2026/2027\nPara la proyección del ejercicio marzo 2026 a febrero 2027, se establece un esquema de actualización de cuotas basado en la evolución de los costos salariales y la inflación proyectada, con el objetivo de mantener el equilibrio económico-financiero del colegio.\nEn primer lugar, se aplica en el mes de abril una actualización del 5,36%, derivada del impacto de los incrementos salariales docentes dispuestos en marzo, considerando tanto el aumento general como el diferencial sobre una proporción del personal.\nAsimismo, se contemplan actualizaciones posteriores en función de la inflación proyectada, aplicadas de manera escalonada en los siguientes períodos:Junio 2026: 6,70% (inflación acumulada marzo–mayo)Septiembre 2026: 5,06% (inflación acumulada junio–agosto)Diciembre 2026: 4,25% (inflación acumulada septiembre–noviembre)Este esquema de actualización permite acompañar la evolución de los costos, especialmente los vinculados a personal, que constituyen el principal componente del gasto institucional.\nEn cuanto a la matrícula, la misma se determina conforme al criterio institucional vigente, equivalente a dos veces el valor de la cuota correspondiente al mes de diciembre, reflejando así el nivel actualizado de ingresos al inicio del ciclo lectivo siguiente.\n\nNota – Proyección de Aportes Estatales 2026/2027\nPara la proyección del ejercicio marzo 2026 a febrero 2027, se toma como base el valor de febrero 2026, aplicando una actualización inicial del 8,43% a partir de marzo.\nAsimismo, se consideran actualizaciones posteriores en función de la inflación proyectada anual, aplicándose ajustes en los meses de junio (6,70%), septiembre (5,06%) y diciembre (4,25%), a fin de mantener el poder adquisitivo del aporte a lo largo del ejercicio.\nAdicionalmente, se incorpora el aporte estatal correspondiente al Sueldo Anual Complementario (SAC) en los meses de junio y diciembre, equivalente a un mes adicional en cada período.\nEn consecuencia, el total proyectado del ejercicio asciende a $ 1.272.070.683,33.\nDado que el sistema presupuestario anualiza el importe mensual multiplicándolo por 13, el valor mensual a cargar para reflejar correctamente el total del ejercicio es de: $ 97.851.590,99Este importe incluye, en forma prorrateada, las actualizaciones por inflación y el efecto del SAC.\n\nNota- En Otros Aranceles se incluye el ingreso por la implementación del proyecto de Programación, robótica, IA con \"Creativos digitales\", mientras que el egreso por este mismo proyecto está dentro del rubro Material didáctico y refrigerio alumnos.\n\nNota- En honorarios se presupuesta acompañamiento al área de soporte técnico e informático del ing. Luis Giudice, en $1.475.000 mensual, por 9 meses, y el proyecto Pro.Con.Pa. por $383.000 mensuales por 9 meses.\n\nNota- En Emergencia y seguridad se incluye el informe del técnico en seguridad e higiene laboral por $550.000.\n\nNota- Prensa y difusión incluye la compra de un TV y su configuración para uso vertical ($2.080.720), señaletica ($203.000), renovación de página web ($250.000), DJI (estabilizador para fotos y videos, USD802,50= $1.203.750), tarjeta de memoria para DJI ($250.000), nuevos diseños vestimenta ($1.200.000) y cambio en cartelería de logos ($2.730.000).\n\nNota- Se aumenta en Rep. y conservación de maquinarias el porcentaje, por service a los dos tractores chicos más el grande, y la plataforma desmalezadora y la cisterna para riego, y los consumibles de los mismos. Se preve mayor costo que el año anterior no solo por inflación sino también por aumento de maquinaria en uso."}, "niveles": [{"n": "Maternal", "al": 68, "cu": 220000, "cc": 0}, {"n": "Inicial", "al": 276, "cu": 145000, "cc": 5000}, {"n": "Primario 1° a 6°", "al": 609, "cu": 155000, "cc": 5000}, {"n": "Secundaria", "al": 572, "cu": 158000, "cc": 5000}], "invItems": [{"pu": 3161070, "qty": 1, "cat": "U.N. Cantina", "desc": "Maquina de Cafe "}, {"cat": "Obra Mejora - Colegio", "qty": 1, "desc": "Tinglado Cancha ", "pu": 90000000}, {"pu": 50000000, "cat": "Obra Mejora - Complejo", "qty": 1, "desc": "Deposito Complejo"}, {"desc": "Estaciones de trabajo de 9 - Administracion", "cat": "Ms. Utiles", "qty": 1, "pu": 7841346}, {"desc": "Sillones de Oficina - Administracion", "cat": "Ms. Utiles", "qty": 8, "pu": 292023}, {"desc": "Aire Acondicionado - Administracion buffet", "cat": "Instalaciones", "qty": 1, "pu": 1800000}, {"desc": "Fotocopiadora", "qty": 1, "cat": "U.N. Libreria", "pu": 7411770}, {"pu": 539024, "cat": "Ms. Utiles", "qty": 1, "desc": "Mesa reunion-Administracion"}, {"pu": 6500000, "qty": 2, "cat": "Obra Nueva", "desc": "Cabaña - Complejo"}, {"pu": 20000000, "qty": 1, "cat": "Instalaciones", "desc": "Pantalla LED 3x2 interior SUM"}, {"pu": 20000000, "desc": "Refuncionalizar Administracion", "cat": "Obra Nueva", "qty": 1}, {"qty": 1, "cat": "Obra Nueva", "desc": "Refuncionalizar Betania ", "pu": 10000000}, {"cat": "Obra nueva", "qty": 1, "desc": "Laboratorio", "pu": 10000000}, {"cat": "Obra Nueva", "qty": 1, "desc": "Ampliacion N.I. 60m2", "pu": 72000000}, {"pu": 23000000, "cat": "Instalaciones", "qty": 1, "desc": "Cesped N.I."}, {"cat": "Uniforme", "qty": 1, "desc": "Uniformes nuevos para la venta", "pu": 50000000}, {"pu": 20000000, "desc": "Equipos Tecnologicos", "cat": "Informatica V.O.", "qty": 1}, {"desc": "Mobiliario-Pizarras marcador", "qty": 5, "cat": "Ms. Utiles", "pu": 660000}, {"desc": "Mobiliario- pupitres y sillas", "qty": 70, "cat": "Ms. Utiles", "pu": 150000}, {"pu": 500000, "qty": 10, "cat": "Ms. Utiles", "desc": "Mobiliario- Armarios aulas y N.I."}, {"pu": 1000000, "desc": "Freezer predio", "qty": 1, "cat": "Ms. Utiles"}, {"desc": "Instalación agua predio", "qty": 1, "cat": "Instalaciones", "pu": 3000000}, {"cat": "Obra Nueva", "qty": 1, "desc": "Office calle España", "pu": 9000000}, {"pu": 9000000, "desc": "Oficina DOE N.I.", "cat": "Obra Nueva", "qty": 1}, {"pu": 525000, "desc": "Caja tela escenario SUM", "cat": "Instalaciones", "qty": 1}], "nombreColegio": "Colegio Sta. Catalina", "notas": "Nota – Actualizacion cuota y matricula 2026/2027Para la proyección del ejercicio marzo 2026 a febrero 2027, se establece un esquema de actualización de cuotas basado en la evolución de los costos salariales y la inflación proyectada, con el objetivo de mantener el equilibrio económico-financiero del colegio.En primer lugar, se aplica en el mes de abril una actualización del 5,36%, derivada del impacto de los incrementos salariales docentes dispuestos en marzo, considerando tanto el aumento general como el diferencial sobre una proporción del personal.Asimismo, se contemplan actualizaciones posteriores en función de la inflación proyectada, aplicadas de manera escalonada en los siguientes períodos:Junio 2026: 6,70% (inflación acumulada marzo–mayo)Septiembre 2026: 5,06% (inflación acumulada junio–agosto)Diciembre 2026: 4,25% (inflación acumulada septiembre–noviembre)Este esquema de actualización permite acompañar la evolución de los costos, especialmente los vinculados a personal, que constituyen el principal componente del gasto institucional.En cuanto a la matrícula, la misma se determina conforme al criterio institucional vigente, equivalente a dos veces el valor de la cuota correspondiente al mes de diciembre, reflejando así el nivel actualizado de ingresos al inicio del ciclo lectivo siguiente.Nota – Proyección de Aportes Estatales 2026/2027Para la proyección del ejercicio marzo 2026 a febrero 2027, se toma como base el valor de febrero 2026, aplicando una actualización inicial del 8,43% a partir de marzo.Asimismo, se consideran actualizaciones posteriores en función de la inflación proyectada anual, aplicándose ajustes en los meses de junio (6,70%), septiembre (5,06%) y diciembre (4,25%), a fin de mantener el poder adquisitivo del aporte a lo largo del ejercicio.Adicionalmente, se incorpora el aporte estatal correspondiente al Sueldo Anual Complementario (SAC) en los meses de junio y diciembre, equivalente a un mes adicional en cada período.En consecuencia, el total proyectado del ejercicio asciende a $ 1.272.070.683,33.Dado que el sistema presupuestario anualiza el importe mensual multiplicándolo por 13, el valor mensual a cargar para reflejar correctamente el total del ejercicio es de: $ 97.851.590,99Este importe incluye, en forma prorrateada, las actualizaciones por inflación y el efecto del SAC.Nota- En Otros Aranceles se incluye el ingreso por la implementación del proyecto de Programación, robótica, IA con \"Creativos digitales\", mientras que el egreso por este mismo proyecto está dentro del rubro Material didáctico y refrigerio alumnos.Nota- En honorarios se presupuesta acompañamiento al área de soporte técnico e informático del ing. Luis Giudice, en $1.475.000 mensual, por 9 meses, y el proyecto Pro.Con.Pa. por $383.000 mensuales por 9 meses.Nota- En Emergencia y seguridad se incluye el informe del técnico en seguridad e higiene laboral por $550.000.Nota- Prensa y difusión incluye la compra de un TV y su configuración para uso vertical ($2.080.720), señaletica ($203.000), renovación de página web ($250.000), DJI (estabilizador para fotos y videos, USD802,50= $1.203.750), tarjeta de memoria para DJI ($250.000), nuevos diseños vestimenta ($1.200.000) y cambio en cartelería de logos ($2.730.000).Nota- Se aumenta en Rep. y conservación de maquinarias el porcentaje, por service a los dos tractores chicos más el grande, y la plataforma desmalezadora y la cisterna para riego, y los consumibles de los mismos. Se preve mayor costo que el año anterior no solo por inflación sino también por aumento de maquinaria en uso.", "uerVals": {"uer-uni-sue": 0, "uer-est-sue": 0, "uer-can-sue": 0}, "subs511": {"e-sue-col": 2185576545, "e-sue-est": 36553247.91, "e-sue-can": 41035782.59, "e-sue-uni": 25924966.08, "e-cc-col": 295052833, "e-cc-est": 4934688.47, "e-cc-can": 5539830.65, "e-cc-uni": 3499870.42, "e-hab-col": 888551042.08, "e-hab-est": 0, "e-hab-can": 0, "e-hab-uni": 0, "e-asig-col": 57776604.25, "e-asig-est": 1671072, "e-asig-can": 1944202, "e-asig-uni": 0, "e-indem-col": 30000000, "e-indem-est": 0, "e-indem-can": 0, "e-indem-uni": 0, "e-cap-col": 10000000, "e-cap-est": 0, "e-cap-can": 0, "e-cap-uni": 0, "e-uni-ropa-col": 5000000, "e-uni-ropa-est": 0, "e-uni-ropa-can": 0, "e-uni-ropa-uni": 0, "e-otros-p-col": 70000000, "e-otros-p-est": 0, "e-otros-p-can": 0, "e-otros-p-uni": 0}, "responsables": {"resp-activo": "Cdra. Noelia", "resp-pasivo": "Cdra. Silvia", "resp-recursos": "Cdr. Luis / Lic. Nicolas", "resp-egresos": "Cdr. Luis / Lic. Nicolas", "resp-inversiones": "Cdr. Soria / Lic. Nkicolas /RL"}, "recExtras": {"0": [], "1": [], "2": [], "3": [], "4": [], "5": []}, "egrExtras": {"0": [], "1": [], "2": [], "3": [], "4": [], "5": [], "6": []}, "_customSeq": 1, "recLabels": {"r-apest": {"cod": "411001", "label": "Aportes Estatales", "ref": 932771003}, "r-mens": {"cod": "412001", "label": "Mensualidades (auto · desde Cuotas)", "ref": 0}, "r-matr": {"cod": "412002", "label": "Matrículas (auto · 2× cuota Dic)", "ref": 0}, "r-beca": {"cod": "412018", "label": "Descuentos por Becas (deducción)", "ref": 0}, "r-incob": {"cod": "412003", "label": "Recupero Incobrables", "ref": 907670}, "r-reint": {"cod": "413001", "label": "Reintegro Gastos Adm. y Comisiones", "ref": 30540094}, "r-seguros": {"cod": "413002", "label": "Reintegro Seguros (Escolar / ART)", "ref": 45206963}, "r-act-edu": {"cod": "413005", "label": "Actividades y Salidas Educativas Ingreso", "ref": 30773899}, "r-dep": {"cod": "413006", "label": "Escuelas Deportivas y Recreativas", "ref": 51440342}, "r-ext-hor": {"cod": "413007", "label": "Extensión Horaria", "ref": 2374900}, "r-mat-ini": {"cod": "413008", "label": "Material Nivel Inicial", "ref": 21024502}, "r-otros-a1": {"cod": "413010", "label": "Otros Aranceles", "ref": 3813760}, "r-ingles": {"cod": "413011", "label": "Otros Aranceles Inglés", "ref": 12051600}, "r-alq": {"cod": "414003", "label": "Alquiler Espacios Colegio", "ref": 1189440}, "r-est-ing": {"cod": "414004", "label": "Vta. Estacionamiento", "ref": 71340423}, "r-uni-ing": {"cod": "414005", "label": "Vta. Uniformes", "ref": 136887500}, "r-lib-ing": {"cod": "414006", "label": "Vta. Librería", "ref": 16347684}, "r-tarj": {"cod": "414013", "label": "Recupero Gastos Tarjetas de Crédito", "ref": 6351383}, "r-can-ing": {"cod": "414014", "label": "Vta. Cantina", "ref": 151962265}, "r-int": {"cod": "415001", "label": "Intereses y Rendimiento de Inversiones", "ref": 75205217}, "r-mora": {"cod": "415002", "label": "Recargos por Mora", "ref": 38064559}, "r-dif-cot": {"cod": "415003", "label": "Diferencias de Cotizaciones", "ref": 8203888}, "r-sob-caja": {"cod": "421001", "label": "Sobrante de Caja", "ref": 98689}}, "egrLabels": {"e-sue": {"cod": "511001", "label": "Sueldos"}, "e-cc": {"cod": "511002", "label": "Cargas Sociales"}, "e-hab": {"cod": "511003", "label": "Haberes Sin Aportes"}, "e-asig": {"cod": "511012", "label": "Asignaciones Familiares"}, "e-indem": {"cod": "511005", "label": "Indemnización"}, "e-cap": {"cod": "511006", "label": "Capacitación"}, "e-uni-ropa": {"cod": "511007", "label": "Uniformes / Ropa de Trabajo"}, "e-otros-p": {"cod": "511008", "label": "Otros Gastos en Personal"}, "e-com-herm": {"cod": "511009", "label": "Comunidad Hermanas"}, "e-hon": {"cod": "512001", "label": "Honorarios"}, "e-seg": {"cod": "512002", "label": "Seguros"}, "e-lug": {"cod": "512003", "label": "Luz, Agua, Gas"}, "e-tel": {"cod": "512004", "label": "Teléfono y Comunicaciones"}, "e-rep-ed": {"cod": "512005", "label": "Repar. y Conserv. Edificios"}, "e-rep-mbl": {"cod": "512006", "label": "Repar. y Conserv. Muebles"}, "e-rep-maq": {"cod": "512007", "label": "Repar. y Conserv. Maquinarias"}, "e-rep-aut": {"cod": "512008", "label": "Repar. y Conserv. Automotores"}, "e-limp": {"cod": "512009", "label": "Servicios y Art. de Limpieza"}, "e-imp": {"cod": "512010", "label": "Impuestos y Tasas"}, "e-com": {"cod": "512011", "label": "Comisiones"}, "e-secu": {"cod": "512012", "label": "Seguridad y Emergencias Médicas"}, "e-lib": {"cod": "513001", "label": "Librería e Impresiones"}, "e-it": {"cod": "513002", "label": "Informática"}, "e-prensa": {"cod": "513003", "label": "Prensa y Difusión"}, "e-sus": {"cod": "513004", "label": "Suscripciones"}, "e-via": {"cod": "513005", "label": "Viáticos, Agasajos y Regalos"}, "e-enc": {"cod": "513006", "label": "Encuentros y Asambleas"}, "e-comb": {"cod": "513007", "label": "Movilidad y Combustible"}, "e-mat-did": {"cod": "513008", "label": "Material Didáctico y Refrigerios Alumnos"}, "e-banco": {"cod": "513009", "label": "Gastos Bancarios"}, "e-dif-caja": {"cod": "513011", "label": "Diferencias de Caja"}, "e-act-edu": {"cod": "513013", "label": "Actividades y Salidas Educativas Egreso"}, "e-don": {"cod": "513014", "label": "Donación Egreso"}, "e-uni-gasto": {"cod": "514001", "label": "Gasto Venta Uniformes"}, "e-est-gasto": {"cod": "514002", "label": "Gasto Estacionamiento"}, "e-can-gasto": {"cod": "514003", "label": "Gasto Cantina"}, "e-lib-gasto": {"cod": "514004", "label": "Gasto Librería"}, "e-act-esp": {"cod": "514006", "label": "Gastos de Actividades Especiales"}, "e-culto": {"cod": "516004", "label": "Culto"}, "e-caja-g": {"cod": "517001", "label": "Aportes a la Caja Común (auto · % sobre base)"}, "e-dif-cot": {"cod": "519302", "label": "Diferencias de Cotizaciones"}, "e-int-mora": {"cod": "519304", "label": "Intereses Moratorios y Multas"}}, "refs511": {"e-sue": 1483992549.01, "e-cc": 199283522.75, "e-hab": 740838152.81, "e-asig": 13222502.08, "e-indem": 12003265, "e-cap": 4791537, "e-uni-ropa": 3012902, "e-otros-p": 54022642.59}};
+
 // ─── INIT ───
 initInicio();
 renderCuotaBody();
@@ -3376,13 +3400,17 @@ initResponsables();
 renderInv();
 updateAll();
 
-// El onSnapshot de Firebase se encarga de la carga inicial y del tiempo real
-// Solo necesitamos marcar _appReady después de que el DOM esté listo
-// El onSnapshot ya está escuchando — cuando llegan los datos los aplica
+// Aplicar estado precargado INMEDIATAMENTE — datos visibles al instante
+// Firebase sobreescribirá con datos más recientes si los hay
+window._applying = true;
+aplicarEstado(_ESTADO_PRECARGADO);
+setTimeout(() => { window._applying = false; }, 1200);
+
+// Activar sincronización en tiempo real
 setTimeout(() => {
   window._appReady = true;
   setSyncStatus('live');
-}, 2000); // 2s para que onSnapshot haga la carga inicial primero
+}, 1500);
 </script>
 </body>
 </html>
